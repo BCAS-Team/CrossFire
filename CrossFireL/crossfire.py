@@ -1,25 +1,3 @@
-#!/usr/bin/env python3
-"""
-CrossFire — Universal Package Manager CLI (Fixed + Package Install) v2.1.0
----------------------------------------------------------------------------
-What’s new (v2.1.0):
-- Install packages with auto manager selection:
-    crossfire --install pyqt6
-    crossfire -i curl
-    crossfire -i express --manager npm     (force a manager)
-- Friendly output, clear progress + summaries
-- Keeps existing features:
-    - status listing of package managers
-    - update one/all managers
-    - secure self-update from allowlisted hosts
-    - launcher + PATH helpers
-
-Notes:
-- Auto-selection tries to pick the “right” manager (pip for Python-looking
-  names, npm for Node-ish names, else system manager by OS).
-- Falls back across other installed managers if the first pick fails.
-"""
-
 from __future__ import annotations
 import argparse
 import concurrent.futures as _fut
@@ -945,3 +923,4 @@ if __name__ == "__main__":
             import traceback
             traceback.print_exc()
         sys.exit(1)
+
