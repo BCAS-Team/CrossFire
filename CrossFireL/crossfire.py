@@ -107,24 +107,70 @@ def is_installed(manager_name):
     return mgr and shutil.which(mgr) is not None
 
 # ----------------------------
+# PATH Auto-Add
+# ----------------------------
+def add_to_path():
+    script_path = os.path.dirname(os.path.realpath(__file__))
+    if OS_NAME == "Windows":
+        current_path = os.environ.get("PATH", "")
+        if script_path not in current_path:
+            subprocess.run(f'setx PATH "{current_path};{script_path}"', shell=True)
+            cprint("CrossFire added to PATH. Restart your terminal.", "SUCCESS")
+    else:
+        shell_file = os.path.expanduser("~/.bashrc")
+        if os.environ.get("SHELL", "").endswith("zsh"):
+            shell_file = os.path.expanduser("~/.zshrc")
+        with open(shell_file, "r") as f:
+            content = f.read()
+        export_line = f'export PATH="{script_path}:$PATH"'
+        if export_line not in content:
+            with open(shell_file, "a") as f:
+                f.write(f"\n# CrossFire CLI\n{export_line}\n")
+            cprint(f"CrossFire added to PATH in {shell_file}. Restart your terminal.", "SUCCESS")
+
+# ----------------------------
 # Package Manager Functions
 # ----------------------------
 def update_manager(manager_name, dry_run=False):
     if manager_name in PACKAGE_MANAGERS:
         if not is_installed(manager_name):
             cprint(f"{manager_name} not installed, skipping.", "WARNING")
-            return
+            return False
         cprint(f"Updating manager: {manager_name}", "INFO")
-        run_command(PACKAGE_MANAGERS[manager_name]["update_cmd"], dry_run)
+        return run_command(PACKAGE_MANAGERS[manager_name]["update_cmd"], dry_run)
     else:
         cprint(f"Manager '{manager_name}' not recognized.", "ERROR")
+        return False
 
 def update_all_managers(dry_run=False):
     cprint("Updating all detected package managers...", "INFO")
+    success = []
+    failed = []
+
+    # System managers (sequential)
+    system_managers = ["APT", "DNF", "Pacman", "Zypper", "Snap", "Flatpak", "Homebrew", "MacPorts", "Fink", "Chocolatey", "Winget", "Scoop"]
+    lang_managers = [mgr for mgr in PACKAGE_MANAGERS if mgr not in system_managers]
+
+    for mgr in system_managers:
+        if is_installed(mgr):
+            if update_manager(mgr, dry_run):
+                success.append(mgr)
+            else:
+                failed.append(mgr)
+
+    # Concurrent language manager updates
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(update_manager, mgr, dry_run) for mgr in PACKAGE_MANAGERS]
-        concurrent.futures.wait(futures)
-    cprint("All managers updated!", "SUCCESS")
+        futures = {executor.submit(update_manager, mgr, dry_run): mgr for mgr in lang_managers if is_installed(mgr)}
+        for fut in concurrent.futures.as_completed(futures):
+            mgr = futures[fut]
+            if fut.result():
+                success.append(mgr)
+            else:
+                failed.append(mgr)
+
+    cprint(f"Updated successfully: {', '.join(success)}", "SUCCESS")
+    if failed:
+        cprint(f"Failed updates: {', '.join(failed)}", "ERROR")
 
 def update_package(manager_name, package_name, dry_run=False):
     if manager_name not in PACKAGE_MANAGERS:
@@ -152,7 +198,6 @@ def update_package(manager_name, package_name, dry_run=False):
         cprint(f"Package auto-update not implemented for {manager_name}", "WARNING")
 
 def detect_manager(package_name):
-    # Detect based on extension or known package
     ext_map = {
         "py": "Python", "whl": "Python",
         "js": "NodeJS", "ts": "NodeJS",
@@ -180,6 +225,7 @@ def list_managers():
 # Main CLI
 # ----------------------------
 def main():
+    add_to_path()  # Ensure CrossFire is in PATH
     parser = argparse.ArgumentParser(description="CrossFire CLI Global Package Manager")
     parser.add_argument("package", nargs='?', help="Package name to install/update")
     parser.add_argument("-um", "--update-manager", nargs='?', const="ALL", help="Update a manager or ALL managers")
