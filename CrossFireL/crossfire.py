@@ -160,78 +160,169 @@ def _get_shell_rc_file() -> str:
     """Detects the user's shell profile file."""
     shell = os.environ.get("SHELL", "")
     home = os.path.expanduser("~")
-    if shell.endswith("zsh") or os.path.exists(os.path.join(home, ".zshrc")):
-        return os.path.join(home, ".zshrc")
-    elif shell.endswith("bash") or os.path.exists(os.path.join(home, ".bashrc")):
-        return os.path.join(home, ".bashrc")
-    elif os.path.exists(os.path.join(home, ".profile")):
-        return os.path.join(home, ".profile")
-    else:
-        return os.path.join(home, ".profile")
+    
+    # Check for existing RC files in order of preference
+    candidates = []
+    
+    # Shell-specific files based on current shell
+    if shell.endswith("zsh"):
+        candidates.extend([".zshrc", ".zprofile"])
+    elif shell.endswith("bash"):
+        candidates.extend([".bashrc", ".bash_profile"])
+    elif shell.endswith("fish"):
+        candidates.append(".config/fish/config.fish")
+    
+    # Common fallbacks
+    candidates.extend([".profile", ".bashrc", ".zshrc"])
+    
+    # Return the first existing file, or create .profile as fallback
+    for candidate in candidates:
+        rc_path = os.path.join(home, candidate)
+        if os.path.exists(rc_path):
+            return rc_path
+    
+    # Default to .profile if nothing exists
+    return os.path.join(home, ".profile")
 
-def add_to_path_safely() -> None:
+def _check_path_already_added(script_dir: str) -> bool:
+    """Check if the script directory is already in PATH or shell config."""
+    # Check current PATH
+    current_path = os.environ.get("PATH", "")
+    if script_dir in current_path.split(os.pathsep):
+        return True
+    
+    # Check shell RC files for export statements
+    home = os.path.expanduser("~")
+    rc_files = [".bashrc", ".bash_profile", ".zshrc", ".zprofile", ".profile"]
+    
+    for rc_file in rc_files:
+        rc_path = os.path.join(home, rc_file)
+        if os.path.exists(rc_path):
+            try:
+                with open(rc_path, "r", encoding="utf-8", errors="ignore") as f:
+                    content = f.read()
+                    if script_dir in content and "export PATH" in content:
+                        return True
+            except Exception:
+                continue
+    
+    return False
+
+def add_to_path_safely() -> bool:
     """Adds the script directory to the system PATH."""
     script_dir = os.path.dirname(os.path.realpath(__file__))
     if not script_dir:
-        return
+        cprint("Cannot determine script directory", "ERROR")
+        return False
     
     if OS_NAME == "Windows":
-        cprint("For permanent PATH update, you must add the script directory manually.", "WARNING")
-        return
+        cprint("For permanent PATH update on Windows, you must add the script directory manually.", "WARNING")
+        cprint(f"Add this directory to your PATH: {script_dir}", "INFO")
+        return False
 
     try:
+        # Check if already added
+        if _check_path_already_added(script_dir):
+            cprint(f"✅ PATH already contains CrossFire directory ({script_dir})", "SUCCESS")
+            return True
+            
         rc_file = _get_shell_rc_file()
         export_line = f'export PATH="{script_dir}:$PATH"'
         
-        # Check if the line is already in the file to avoid duplicates
-        if os.path.exists(rc_file):
-            with open(rc_file, "r", encoding="utf-8", errors="ignore") as f:
-                if export_line in f.read():
-                    cprint(f"✅ PATH is already configured in {os.path.basename(rc_file)}.", "SUCCESS")
-                    return
+        # Ensure the RC file's directory exists (for fish config, etc.)
+        os.makedirs(os.path.dirname(rc_file), exist_ok=True)
         
+        # Add the export line
         with open(rc_file, "a", encoding="utf-8") as f:
             f.write(f"\n# CrossFire CLI\n{export_line}\n")
-        cprint(f"✅ PATH updated in {os.path.basename(rc_file)}.", "SUCCESS")
+        
+        cprint(f"✅ Added CrossFire to PATH in {os.path.basename(rc_file)}", "SUCCESS")
+        cprint("💡 Restart your terminal or run: source ~/.profile", "INFO")
+        return True
+        
     except Exception as e:
-        cprint(f"✗ Failed to update PATH: {e}. You may need to run this command with 'sudo'.", "ERROR")
+        cprint(f"✗ Failed to update PATH: {e}", "ERROR")
+        cprint("You may need to add the following directory to your PATH manually:", "INFO")
+        cprint(f"  {script_dir}", "MUTED")
+        return False
 
 def install_launcher() -> Optional[str]:
     """Installs a system-wide launcher for 'crossfire'."""
     target_name = "crossfire"
     script_path = os.path.abspath(__file__)
     installed_path: Optional[str] = None
+    
     try:
         if OS_NAME in ("Linux", "Darwin"):
-            candidates = [os.path.expanduser("~/.local/bin"), "/usr/local/bin"]
+            # Prioritize user-local installation
+            home_bin = os.path.expanduser("~/.local/bin")
+            candidates = [home_bin, "/usr/local/bin"]
+            
             for bin_dir in candidates:
                 try:
                     launcher_path = os.path.join(bin_dir, target_name)
-                    if os.path.exists(launcher_path):
-                        cprint(f"✅ Launcher already exists at {launcher_path}.", "SUCCESS")
-                        installed_path = launcher_path
-                        break
                     
+                    # Check if launcher already exists and is working
+                    if os.path.exists(launcher_path):
+                        # Verify it's working
+                        try:
+                            result = run_command([launcher_path, "--help"], timeout=5)
+                            if result.ok or "CrossFire" in result.out:
+                                cprint(f"✅ Working launcher found at {launcher_path}", "SUCCESS")
+                                installed_path = launcher_path
+                                break
+                        except Exception:
+                            # Remove broken launcher
+                            cprint(f"Removing broken launcher at {launcher_path}", "WARNING")
+                            os.remove(launcher_path)
+                    
+                    # Create directory if it doesn't exist
                     os.makedirs(bin_dir, exist_ok=True)
+                    
+                    # Create launcher script
                     launcher_content = f"""#!/bin/bash
-# CrossFire launcher
+# CrossFire launcher - auto-generated
 exec "{sys.executable}" "{script_path}" "$@"
 """
+                    
                     with open(launcher_path, "w", encoding="utf-8") as f:
                         f.write(launcher_content)
+                    
+                    # Make executable
                     current_mode = os.stat(launcher_path).st_mode
-                    os.chmod(launcher_path, current_mode | stat.S_IEXEC)
-                    installed_path = launcher_path
-                    cprint(f"✅ Launcher installed: {launcher_path}", "SUCCESS")
-                    break
+                    os.chmod(launcher_path, current_mode | stat.S_IEXEC | stat.S_IREAD | stat.S_IWRITE)
+                    
+                    # Test the launcher
+                    test_result = run_command([launcher_path, "--help"], timeout=10)
+                    if test_result.ok or "CrossFire" in (test_result.out + test_result.err):
+                        installed_path = launcher_path
+                        cprint(f"✅ Launcher installed and tested: {launcher_path}", "SUCCESS")
+                        
+                        # Ensure ~/.local/bin is in PATH for user installations
+                        if bin_dir == home_bin:
+                            current_path = os.environ.get("PATH", "")
+                            if home_bin not in current_path:
+                                cprint(f"💡 Note: {home_bin} should be in your PATH", "INFO")
+                        break
+                    else:
+                        cprint(f"Launcher test failed for {launcher_path}", "WARNING")
+                        if os.path.exists(launcher_path):
+                            os.remove(launcher_path)
+                            
+                except PermissionError:
+                    if LOG.verbose:
+                        cprint(f"Permission denied for {bin_dir}, trying next location", "MUTED")
+                    continue
                 except Exception as e:
                     if LOG.verbose:
                         cprint(f"Install attempt in {bin_dir} failed: {e}", "WARNING")
                     continue
+                    
         elif OS_NAME == "Windows":
             python_exe = sys.executable or "python"
             script_dir = os.path.dirname(script_path)
             bat_path = os.path.join(script_dir, f"{target_name}.bat")
+            
             if os.path.exists(bat_path):
                 cprint(f"✅ Launcher already exists: {target_name}.bat", "SUCCESS")
                 return bat_path
@@ -250,8 +341,10 @@ REM CrossFire launcher
                     cprint(f"Launcher creation failed: {e}", "WARNING")
         else:
             cprint(f"Unsupported OS: {OS_NAME}", "WARNING")
+            
     except Exception as e:
         cprint(f"✗ Launcher installation failed: {e}", "ERROR")
+        
     return installed_path
 
 # ----------------------------
@@ -567,6 +660,7 @@ def _detect_installed_installers() -> Dict[str, bool]:
 def _looks_like_python_pkg(pkg: str) -> bool:
     """Heuristics for Python packages."""
     return any(x in pkg for x in ["==", ">=", "<=", "~=", "!=", "[", "]"]) or pkg.lower().startswith(("py", "django", "flask", "numpy", "pandas"))
+
 def _looks_like_npm_pkg(pkg: str) -> bool:
     """Heuristics for NPM packages."""
     return pkg.startswith("@") or pkg.lower() in ("express", "react", "vue", "angular", "typescript", "eslint")
@@ -674,7 +768,69 @@ Examples:
     parser.add_argument("-i", "--install", metavar="PKG", help="Install a package by name")
     parser.add_argument("--manager", metavar="NAME", help="Preferred manager to use (pip, npm, apt, brew, etc.)")
     parser.add_argument("--setup", action="store_true", help="Performs initial setup: installs launcher and adds to PATH")
+    parser.add_argument("--test-setup", action="store_true", help="Test if CrossFire setup is working correctly")
     return parser
+
+def test_setup() -> int:
+    """Test if CrossFire is properly set up and accessible."""
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    
+    cprint("🔍 Testing CrossFire setup...", "INFO")
+    
+    # Test 1: Check if script directory is in PATH
+    current_path = os.environ.get("PATH", "").split(os.pathsep)
+    path_ok = any(script_dir in path_part for path_part in current_path)
+    
+    if path_ok:
+        cprint("✅ Script directory is in PATH", "SUCCESS")
+    else:
+        cprint("❌ Script directory not found in PATH", "ERROR")
+        cprint(f"   Expected: {script_dir}", "MUTED")
+    
+    # Test 2: Check for launcher scripts
+    launcher_found = False
+    if OS_NAME in ("Linux", "Darwin"):
+        possible_launchers = [
+            os.path.expanduser("~/.local/bin/crossfire"),
+            "/usr/local/bin/crossfire"
+        ]
+        for launcher in possible_launchers:
+            if os.path.exists(launcher) and os.access(launcher, os.X_OK):
+                cprint(f"✅ Found executable launcher: {launcher}", "SUCCESS")
+                launcher_found = True
+                break
+    elif OS_NAME == "Windows":
+        bat_launcher = os.path.join(script_dir, "crossfire.bat")
+        if os.path.exists(bat_launcher):
+            cprint(f"✅ Found batch launcher: {bat_launcher}", "SUCCESS")
+            launcher_found = True
+    
+    if not launcher_found:
+        cprint("❌ No working launcher found", "ERROR")
+    
+    # Test 3: Try to execute crossfire command
+    crossfire_works = False
+    try:
+        # Test if 'crossfire' command works
+        result = run_command(["crossfire", "--help"], timeout=10)
+        if result.ok or "CrossFire" in (result.out + result.err):
+            cprint("✅ 'crossfire' command works from PATH", "SUCCESS")
+            crossfire_works = True
+        else:
+            cprint("❌ 'crossfire' command failed", "ERROR")
+    except Exception as e:
+        cprint(f"❌ Error testing crossfire command: {e}", "ERROR")
+    
+    # Summary
+    setup_ok = path_ok or launcher_found or crossfire_works
+    if setup_ok:
+        cprint("\n🎉 CrossFire setup appears to be working!", "SUCCESS")
+        if not crossfire_works:
+            cprint("💡 You may need to restart your terminal or run: source ~/.profile", "INFO")
+        return 0
+    else:
+        cprint("\n❌ CrossFire setup has issues. Try running: python crossfire.py --setup", "ERROR")
+        return 1
 
 def show_default_status() -> int:
     """Shows the tool's default status message and available managers."""
@@ -706,7 +862,14 @@ def show_default_status() -> int:
             for manager in not_installed:
                 cprint(f"  - {manager}", "MUTED")
         
-    cprint("\nTo install the 'crossfire' command globally, run: crossfire --setup", "INFO")
+    # Check if setup is needed
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    if not _check_path_already_added(script_dir):
+        cprint("\n💡 To install the 'crossfire' command globally, run:", "INFO")
+        cprint(f"   python {os.path.basename(__file__)} --setup", "MUTED")
+    else:
+        cprint("\n✅ CrossFire is set up. Use 'crossfire --help' for usage.", "SUCCESS")
+    
     return 0
 
 def run(argv: Optional[List[str]] = None) -> int:
@@ -721,12 +884,23 @@ def run(argv: Optional[List[str]] = None) -> int:
     # Handle the setup command separately and early for better performance
     if args.setup:
         cprint("⚙️ Running one-time setup...", "INFO")
-        add_to_path_safely()
-        installed_path = install_launcher()
-        if installed_path:
-            cprint(f"\nSetup complete. You can now run 'crossfire' from any directory. "
-                   f"You may need to restart your terminal.", "SUCCESS")
-        return 0
+        path_added = add_to_path_safely()
+        launcher_installed = install_launcher()
+        
+        if path_added or launcher_installed:
+            cprint(f"\n🎉 Setup complete!", "SUCCESS")
+            cprint("You can now run 'crossfire' from any directory.", "INFO")
+            cprint("You may need to restart your terminal or run: source ~/.profile", "MUTED")
+            
+            # Test the setup
+            cprint("\nTesting setup...", "INFO")
+            return test_setup()
+        else:
+            cprint("\n❌ Setup encountered issues. Try running with sudo or check permissions.", "ERROR")
+            return 1
+    
+    if args.test_setup:
+        return test_setup()
 
     if args.crossupdate is not None:
         url = args.crossupdate or DEFAULT_UPDATE_URL
