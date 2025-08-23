@@ -12,7 +12,6 @@ CrossFire isn't just a utility — it's a powerful command-line engine that stre
 With a unified and self-sustaining architecture, CrossFire is constantly evolving to make your workflow faster, more reliable, and completely consistent across every platform.
 🔥 Open. Powerful. Self-Sustaining. Always Evolving. 🔥
 
-</div>
 📖 Read the Documentation
 
 Our official documentation makes it easier than ever to get started and understand every feature of CrossFire.
@@ -77,5 +76,7 @@ This project is licensed under the MIT License. See the LICENSE file for details
 Made with 💡, grit, and a hint of rebellion.
 
 © 2025 BCAS Team – Redefining the Digital Frontier
+
+</div>
 
 </div>
