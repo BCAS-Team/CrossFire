@@ -10,7 +10,7 @@
 
 ---
 
-## 🚀 **CrossFire 3.0.0: *One Command. Every Platform. Total Control.***
+## 🚀 **CrossFire 3.0.0f3: *One Command. Every Platform. Total Control.***
 
 > **— Brought to you by the BCAS Team**
 
