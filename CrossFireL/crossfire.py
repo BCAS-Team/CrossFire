@@ -20,7 +20,7 @@ from typing import Dict, List, Optional, Tuple, Any
 import queue
 from pathlib import Path
 
-__version__ = "3.1.0 (Alternative-Beta)"
+__version__ = "3.1.0f1 (Alternative-Beta)"
 
 # ----------------------------
 # OS & Architecture Detection
