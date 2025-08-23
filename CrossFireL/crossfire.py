@@ -4,7 +4,7 @@ import concurrent.futures as _fut
 import hashlib
 import io
 import json
-import os
+import os   
 import platform
 import shutil
 import stat
@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 import queue
 
-__version__ = "3.0.0 (Stable Branch)"
+__version__ = "3.0.0f3 (Alternative-Beta)"
 
 # ----------------------------
 # OS & Architecture Detection
@@ -177,32 +177,42 @@ def run_command(
 # PATH management + Launcher
 # ----------------------------
 def _get_shell_rc_file() -> str:
-    """Detects the user's shell profile file."""
+    """Detects the user's shell profile file, preferring ~/.bashrc on Linux."""
     shell = os.environ.get("SHELL", "")
     home = os.path.expanduser("~")
-    
-    # Check for specific shells first
+
+    # Zsh
     if shell.endswith("zsh") or os.path.exists(os.path.join(home, ".zshrc")):
         return os.path.join(home, ".zshrc")
-    elif shell.endswith("bash"):
-        # Prefer .bashrc on Linux, .bash_profile on macOS
-        if OS_NAME == "Darwin" and os.path.exists(os.path.join(home, ".bash_profile")):
-            return os.path.join(home, ".bash_profile")
-        elif os.path.exists(os.path.join(home, ".bashrc")):
+
+    # Bash (prefer .bashrc on Linux, .bash_profile on macOS)
+    if shell.endswith("bash") or "bash" in shell:
+        if OS_NAME == "Darwin":
+            if os.path.exists(os.path.join(home, ".bash_profile")):
+                return os.path.join(home, ".bash_profile")
             return os.path.join(home, ".bashrc")
-        else:
-            return os.path.join(home, ".bashrc")
-    elif shell.endswith("fish"):
+        else:  # Linux & others
+            if os.path.exists(os.path.join(home, ".bashrc")):
+                return os.path.join(home, ".bashrc")
+            return os.path.join(home, ".profile")
+
+    # Fish
+    if shell.endswith("fish"):
         fish_config_dir = os.path.join(home, ".config", "fish")
         os.makedirs(fish_config_dir, exist_ok=True)
         return os.path.join(fish_config_dir, "config.fish")
-    elif os.path.exists(os.path.join(home, ".profile")):
-        return os.path.join(home, ".profile")
-    else:
+
+    # Fallbacks
+    if os.path.exists(os.path.join(home, ".bashrc")):
+        return os.path.join(home, ".bashrc")
+    if os.path.exists(os.path.join(home, ".profile")):
         return os.path.join(home, ".profile")
 
+    return os.path.join(home, ".profile")
+
+
 def add_to_path_safely() -> None:
-    """Adds the script directory to the system PATH."""
+    """Adds the script directory to the system PATH immediately and permanently."""
     script_dir = os.path.dirname(os.path.realpath(__file__))
     if not script_dir:
         return
@@ -216,24 +226,33 @@ def add_to_path_safely() -> None:
         rc_file = _get_shell_rc_file()
         export_line = f'export PATH="{script_dir}:$PATH"'
         
-        # Handle fish shell differently
+        # Fish shell handling
         if rc_file.endswith("config.fish"):
             export_line = f'set -gx PATH "{script_dir}" $PATH'
         
-        # Check if the line is already in the file to avoid duplicates
+        # Check if the line is already present
         if os.path.exists(rc_file):
             with open(rc_file, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
                 if script_dir in content or export_line in content:
                     cprint(f"✅ PATH is already configured in {os.path.basename(rc_file)}.", "SUCCESS")
-                    return
-        
-        with open(rc_file, "a", encoding="utf-8") as f:
-            f.write(f"\n# CrossFire CLI\n{export_line}\n")
-        cprint(f"✅ PATH updated in {os.path.basename(rc_file)}.", "SUCCESS")
-        cprint("Note: You may need to restart your terminal or run 'source ~/.bashrc' (or equivalent) for changes to take effect.", "INFO")
+                else:
+                    with open(rc_file, "a", encoding="utf-8") as f_append:
+                        f_append.write(f"\n# CrossFire CLI\n{export_line}\n")
+                    cprint(f"✅ PATH updated in {os.path.basename(rc_file)}.", "SUCCESS")
+        else:
+            # create file if missing
+            with open(rc_file, "w", encoding="utf-8") as f_create:
+                f_create.write(f"# CrossFire CLI\n{export_line}\n")
+            cprint(f"✅ Created {os.path.basename(rc_file)} and updated PATH.", "SUCCESS")
+
+        # Also update PATH in current session immediately
+        os.environ["PATH"] = f"{script_dir}:{os.environ.get('PATH','')}"
+        cprint("✅ PATH updated for current session as well.", "SUCCESS")
+
     except Exception as e:
         cprint(f"✗ Failed to update PATH: {e}", "ERROR")
+
 
 def install_launcher() -> Optional[str]:
     """Installs a system-wide launcher for 'crossfire'."""
