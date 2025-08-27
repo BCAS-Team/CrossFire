@@ -1,5 +1,3 @@
-# CrossFire v4.0 - BlackBase README
-
 <div align="center">
 
 # ⚡ CrossFire v4.0 - BlackBase (Release)
