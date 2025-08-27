@@ -25,7 +25,7 @@ from pathlib import Path
 import requests
 import xml.etree.ElementTree as ET
 
-__version__ = "3.3.0f1 (Crosseye)"
+__version__ = "3.3.0 (CrossEye)"
 
 # ----------------------------
 # Configuration & Constants
@@ -1558,13 +1558,44 @@ def install_launcher(target_dir: Optional[str] = None) -> Optional[str]:
         cprint(f"Failed to install launcher: {e}", "ERROR")
     return None
 
+def install_launcher(target_dir: Optional[str] = None) -> Optional[str]:
+    """Install CrossFire launcher globally (with optional custom path)."""
+    cprint("Installing CrossFire launcher...", "INFO")
+
+    try:
+        if target_dir:
+            install_dir = Path(target_dir).expanduser().resolve()
+        elif OS_NAME == "Windows":
+            install_dir = Path.home() / "AppData" / "Local" / "CrossFire"
+        else:
+            install_dir = Path.home() / ".local" / "bin"
+
+        install_dir.mkdir(parents=True, exist_ok=True)
+
+        launcher_name = "crossfire.exe" if OS_NAME == "Windows" else "crossfire"
+        launcher_path = install_dir / launcher_name
+
+        # Copy current script
+        current_script = Path(__file__).resolve()
+        shutil.copy2(current_script, launcher_path)
+
+        if OS_NAME != "Windows":
+            launcher_path.chmod(launcher_path.stat().st_mode | stat.S_IEXEC)
+
+        cprint(f"Launcher installed to: {launcher_path}", "SUCCESS")
+        return str(launcher_path)
+
+    except Exception as e:
+        cprint(f"Failed to install launcher: {e}", "ERROR")
+        return None
+
+
 def change_install_location(new_dir: str) -> bool:
     """Move CrossFire installation to a new directory."""
     try:
         new_dir = Path(new_dir).expanduser().resolve()
         new_dir.mkdir(parents=True, exist_ok=True)
 
-        # Determine current launcher path
         if OS_NAME == "Windows":
             old_dir = Path.home() / "AppData" / "Local" / "CrossFire"
             launcher_name = "crossfire.exe"
@@ -1585,6 +1616,7 @@ def change_install_location(new_dir: str) -> bool:
 
         cprint(f"Launcher moved to: {new_launcher}", "SUCCESS")
         return True
+
     except Exception as e:
         cprint(f"Failed to change install location: {e}", "ERROR")
         return False
@@ -1811,6 +1843,7 @@ def export_packages(manager: str, output_file: Optional[str] = None) -> bool:
         cprint(f"Export failed: {e}", "ERROR")
         return False
 
+
 # ============================================================================
 # Enhanced CLI Interface
 # ============================================================================
@@ -1822,41 +1855,55 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Commands:
-  crossfire --setup                   # One-time setup: install launcher & update PATH
-  crossfire --list-managers           # List all supported package managers with status
-  crossfire --install-manager <NAME>  # Install a specific package manager
-  crossfire --list-installed          # Show packages installed via CrossFire
-  crossfire -s <QUERY>                # Search across PyPI, NPM, Homebrew
-  crossfire -i <PKG>                  # Install package with progress tracking
-  crossfire -r <PKG>                  # Remove/uninstall a package
-  crossfire --install-from <FILE>     # Install packages from requirements file
-  crossfire --export <MANAGER>        # Export installed packages list
-  crossfire -um <NAME>                # Update a specific manager or 'ALL' 
-  crossfire -cu [URL]                 # Self-update with real download + progress
-  crossfire --speed-test              # Internet speed test with progress
-  crossfire --ping-test               # Network latency test to multiple hosts
-  crossfire --cleanup                 # Clean system with progress tracking
-  crossfire --health-check            # Comprehensive system health analysis
-  crossfire --stats                   # Detailed system and package statistics
+  General:
+    --version                   Show CrossFire version
+    -q, --quiet                 Quiet mode (errors only)
+    -v, --verbose               Verbose output
+    --json                      Output results in JSON format
 
-Production Features:
-  • Real search across PyPI, NPM, and Homebrew APIs
-  • Database tracking of installed packages
-  • Real download system with progress bars and hash verification
-  • Comprehensive health monitoring and diagnostics
-  • Multi-threaded operations with proper error handling
-  • Cross-platform support (Windows, macOS, Linux)
+  Package Management:
+    --list-managers             List all supported package managers with status
+    --install-manager <NAME>    Install a specific package manager (pip, npm, brew, etc.)
+    --list-installed            Show packages installed via CrossFire
+    -s, --search <QUERY>        Search across PyPI, NPM, and Homebrew
+    -i, --install <PKG>         Install a package by name
+    -r, --remove <PKG>          Remove/uninstall a package
+    --manager <NAME>            Preferred manager to use (pip, npm, apt, brew, etc.)
+    --install-from <FILE>       Install packages from a requirements file
+    --export <MANAGER>          Export installed packages list
+    -o, --output <FILE>         Output file for export command
+
+  System Management:
+    -um, --update-manager <NAME> Update specific manager or 'ALL'
+    -cu, --crossupdate [URL]     Self-update from URL (default: GitHub)
+    --sha256 <HASH>             Expected SHA256 hash for update verification
+    --cleanup                   Clean package manager caches
+    --health-check              Run comprehensive system health check
+    --stats                     Show detailed package statistics
+    --setup [DIR]               Install CrossFire launcher (optionally at a specific directory)
+    --change-install-location DIR
+                                Move existing CrossFire installation to a new directory
+
+  Network Testing:
+    --speed-test                Test internet download speed
+    --ping-test                 Test network latency to various hosts
+    --test-url <URL>            Custom URL for speed testing
+    --test-duration <SECONDS>   Duration for speed test (default: 10s)
+
+  Search Options:
+    --search-limit <N>          Limit search results (default: 20)
 
 Examples:
-  crossfire --setup                   # Initial setup
-  crossfire -s "web framework"        # Search across all repositories
-  crossfire -i requests --manager pip # Install with specific manager
-  crossfire --install-manager brew    # Install Homebrew package manager
-  crossfire --list-installed          # Show CrossFire-managed packages
-  crossfire --install-from requirements.txt # Bulk install
-  crossfire --export pip -o my_packages.txt # Export package list
-  crossfire --health-check            # System diagnostics
-  crossfire --speed-test              # Test internet connection
+  crossfire --setup
+  crossfire -s "web framework"
+  crossfire -i requests --manager pip
+  crossfire --install-manager brew
+  crossfire --list-installed
+  crossfire --install-from requirements.txt
+  crossfire --export pip -o my_packages.txt
+  crossfire --health-check
+  crossfire --speed-test
+  crossfire --change-install-location ~/mybin
         """,
     )
 
@@ -1908,6 +1955,7 @@ Examples:
                          help="Limit search results (default: 20)")
 
     return parser
+
 
 def show_enhanced_status() -> int:
     """Shows the enhanced tool status with better formatting."""
@@ -2192,6 +2240,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             if LOG.json_mode:
                 print(json.dumps(results, indent=2, ensure_ascii=False))
             return 0 if any(r.get("ok") == "true" for r in results.values()) else 1
+        
+        if args.change_install_location:
+            success = change_install_location(args.change_install_location)
+        return 0 if success else 1
         
         # No specific command given, show enhanced status
         return show_enhanced_status()
