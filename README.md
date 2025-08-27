@@ -117,11 +117,11 @@ CrossFire is built on a **modular, self-sustaining architecture** designed for *
 │ └─ Timeout Management                │
 ├──────────────────────────────────────┤
 │ 📡 Package Manager Interface         │
-│ ├─ Linux (apt, dnf, pacman...)      │
-│ ├─ Windows (winget, chocolatey)     │
+│ ├─ Linux (apt, dnf, pacman...)       │
+│ ├─ Windows (winget, chocolatey)      │
 │ ├─ macOS (homebrew)                  │
-│ ├─ Language-Specific (pip, npm)     │
-│ └─ Universal (snap, flatpak)        │
+│ ├─ Language-Specific (pip, npm)      │
+│ └─ Universal (snap, flatpak)         │
 └──────────────────────────────────────┘
 ```
 
