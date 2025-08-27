@@ -141,7 +141,7 @@ Join a **community of digital revolutionaries** shaping the future of package ma
 
 ## 📚 Documentation
 
-Full command reference, configuration options, and technical guides are available in our **[official documentation](#)**.
+Full command reference, configuration options, and technical guides are available in our **[official documentation](https://bcas-team.github.io/Crossfire/)**.
 
 ---
 
