@@ -25,7 +25,7 @@ from pathlib import Path
 import requests
 import xml.etree.ElementTree as ET
 
-__version__ = "3.2.0f2 (Production)"
+__version__ = "CrossFire 1.0 - BlackBase"
 
 # ----------------------------
 # Configuration & Constants
@@ -261,7 +261,7 @@ class ProgressBar:
 class SpeedTest:
     @staticmethod
     def test_download_speed(url: Optional[str] = None, duration: int = 10) -> Dict[str, Any]:
-        cprint("🧪 Starting internet speed test...", "INFO")
+        cprint("Testing internet speed...", "INFO")
         
         start_time = time.time()
         downloaded_bytes = 0
@@ -276,7 +276,7 @@ class SpeedTest:
                 ]
                 url = test_urls[0]  # Use first available
             
-            cprint(f"📡 Testing download speed from: {url}", "INFO")
+            cprint(f"Testing download speed from: {url}", "INFO")
             
             request = urllib.request.Request(url)
             with urllib.request.urlopen(request, timeout=30) as response:
@@ -309,16 +309,16 @@ class SpeedTest:
                 "downloaded_mb": round(downloaded_bytes / 1024 / 1024, 2),
                 "elapsed_seconds": round(elapsed_time, 2),
             }
-            cprint(f"✅ Speed test complete: {result['download_mbps']} Mbps ({result['downloaded_mb']} MB downloaded)", "SUCCESS")
+            cprint(f"Speed test complete: {result['download_mbps']} Mbps ({result['downloaded_mb']} MB downloaded)", "SUCCESS")
             return result
             
         except Exception as e:
-            cprint(f"❌ Speed test failed: {e}", "ERROR")
+            cprint(f"Speed test failed: {e}", "ERROR")
             return {"ok": False, "error": str(e)}
 
     @staticmethod
     def ping_test() -> Dict[str, Any]:
-        cprint("📶 Starting network latency test...", "INFO")
+        cprint("Starting network latency test...", "INFO")
         
         hosts = ["google.com", "github.com", "cloudflare.com", "8.8.8.8"]
         results = {}
@@ -344,17 +344,17 @@ class SpeedTest:
                 if latency_match:
                     latency = float(latency_match.group(1))
                     results[host] = {"ok": True, "latency_ms": latency}
-                    cprint(f"✅ {host}: {latency}ms", "SUCCESS")
+                    cprint(f"{host}: {latency}ms", "SUCCESS")
                 else:
                     results[host] = {"ok": False, "msg": "Could not parse ping output"}
-                    cprint(f"⚠️ {host}: Could not parse ping output", "WARNING")
+                    cprint(f"{host}: Could not parse ping output", "WARNING")
                     
             except subprocess.TimeoutExpired:
                 results[host] = {"ok": False, "msg": "Timed out"}
-                cprint(f"⚠️ {host}: Timed out", "WARNING")
+                cprint(f"{host}: Timed out", "WARNING")
             except Exception as e:
                 results[host] = {"ok": False, "msg": str(e)}
-                cprint(f"❌ {host}: {str(e)}", "ERROR")
+                cprint(f"{host}: {str(e)}", "ERROR")
             
             progress.update()
             
@@ -364,12 +364,12 @@ class SpeedTest:
         successful_pings = [r["latency_ms"] for r in results.values() if r.get("ok")]
         if successful_pings:
             avg_latency = sum(successful_pings) / len(successful_pings)
-            cprint(f"📊 Average latency: {avg_latency:.1f}ms", "SUCCESS")
+            cprint(f"Average latency: {avg_latency:.1f}ms", "SUCCESS")
         
         return results
 
 # ============================================================================
-# Real Search Engine Implementation
+# Real Search Engine Implementation (Complete & OS-aware)
 # ============================================================================
 @dataclass
 class SearchResult:
@@ -390,206 +390,167 @@ class RealSearchEngine:
         self.session.timeout = 30
     
     def search(self, query: str, manager: Optional[str] = None, limit: int = 20) -> List[SearchResult]:
-        """Search across real package repositories."""
-        cprint(f"🔍 Searching for '{query}' across package repositories...", "INFO")
+        """Search across installed and OS-supported package managers."""
+        cprint(f"Searching for '{query}' across available package managers...", "INFO")
         
         all_results = []
-        target_managers = [manager.lower()] if manager else ["pip", "npm", "brew"]
+        installed = _detect_installed_managers()
         
-        # Search each repository concurrently
-        with _fut.ThreadPoolExecutor(max_workers=3) as executor:
+        # Limit to user-specified manager, otherwise all installed + supported
+        if manager:
+            target_managers = [manager.lower()] if installed.get(manager.lower()) else []
+        else:
+            target_managers = [m for m, ok in installed.items() if ok]
+        
+        if not target_managers:
+            cprint("No usable package managers available for searching.", "ERROR")
+            return []
+        
+        # Map managers to their search functions
+        manager_funcs = {
+            "pip": self._search_pypi,
+            "npm": self._search_npm,
+            "brew": self._search_brew,
+            "apt": self._search_apt,
+            "dnf": self._search_dnf,
+            "yum": self._search_yum,
+            "pacman": self._search_pacman,
+            "zypper": self._search_zypper,
+            "apk": self._search_apk,
+            "choco": self._search_choco,
+            "winget": self._search_winget,
+            "snap": self._search_snap,
+            "flatpak": self._search_flatpak,
+        }
+        
+        with _fut.ThreadPoolExecutor(max_workers=5) as executor:
             future_to_manager = {}
-            
             for mgr in target_managers:
-                if mgr == "pip":
-                    future = executor.submit(self._search_pypi, query)
-                elif mgr == "npm":
-                    future = executor.submit(self._search_npm, query)
-                elif mgr == "brew":
-                    future = executor.submit(self._search_brew, query)
-                else:
-                    continue
-                future_to_manager[future] = mgr
+                func = manager_funcs.get(mgr)
+                if func:
+                    future_to_manager[executor.submit(func, query)] = mgr
             
             progress = ProgressBar(len(future_to_manager), "Searching repositories", "repos")
-            
-            for future in _fut.as_completed(future_to_manager, timeout=60):
+            for future in _fut.as_completed(future_to_manager, timeout=120):
                 mgr = future_to_manager[future]
                 try:
-                    results = future.result()
+                    results = future.result() or []
                     all_results.extend(results)
-                    cprint(f"✅ {mgr.upper()}: Found {len(results)} results", "SUCCESS")
+                    cprint(f"{mgr.upper()}: Found {len(results)} results", "SUCCESS")
                 except Exception as e:
-                    cprint(f"⚠️ {mgr.upper()}: Search failed - {e}", "WARNING")
+                    cprint(f"{mgr.upper()}: Search failed - {e}", "WARNING")
                 finally:
                     progress.update()
-            
             progress.finish()
         
-        # Sort by relevance and limit results
         all_results.sort(key=lambda x: x.relevance_score, reverse=True)
         return all_results[:limit]
-    
+
+    # ---------------- PyPI / NPM / Brew ---------------- #
     def _search_pypi(self, query: str) -> List[SearchResult]:
-        """Search Python Package Index (PyPI)."""
         try:
-            url = f"https://pypi.org/simple/{query}/"
-            response = self.session.get(url, timeout=10)
-            
-            # If exact match found, get details
-            if response.status_code == 200:
-                return [self._get_pypi_package_info(query)]
-            
-            # Otherwise, search via API
-            search_url = "https://pypi.org/pypi"
-            params = {"q": query, "format": "json"}
-            
-            # PyPI doesn't have a direct search API, so we'll use a fallback approach
-            # Try to get package info for common variations
-            results = []
-            variations = [query, query.lower(), query.replace("-", "_"), query.replace("_", "-")]
-            
-            for variation in variations[:3]:  # Limit attempts
-                try:
-                    pkg_info = self._get_pypi_package_info(variation)
-                    if pkg_info:
-                        results.append(pkg_info)
-                except:
-                    continue
-            
-            return results[:5]
-            
-        except Exception as e:
-            if LOG.verbose:
-                cprint(f"PyPI search error: {e}", "WARNING")
-            return []
-    
-    def _get_pypi_package_info(self, package_name: str) -> SearchResult:
-        """Get detailed info for a specific PyPI package."""
-        url = f"https://pypi.org/pypi/{package_name}/json"
-        
-        try:
-            response = self.session.get(url, timeout=10)
-            if response.status_code != 200:
-                return None
-                
-            data = response.json()
-            info = data.get("info", {})
-            
-            # Calculate relevance score
-            score = 50  # Base score for exact API match
-            
-            return SearchResult(
-                name=info.get("name", package_name),
-                description=info.get("summary", "")[:200],
-                version=info.get("version", "unknown"),
-                manager="pip",
-                homepage=info.get("home_page") or info.get("project_url"),
-                relevance_score=score
-            )
-        except Exception:
-            return None
-    
+            url = f"https://pypi.org/pypi/{query}/json"
+            r = self.session.get(url, timeout=10)
+            if r.status_code == 200:
+                return [self._parse_pypi_info(r.json())]
+        except:
+            pass
+        return []
+
+    def _parse_pypi_info(self, data: Dict[str, Any]) -> SearchResult:
+        info = data.get("info", {})
+        return SearchResult(
+            name=info.get("name", ""),
+            description=info.get("summary", "")[:200],
+            version=info.get("version", "unknown"),
+            manager="pip",
+            homepage=info.get("home_page") or info.get("project_url"),
+            relevance_score=50
+        )
+
     def _search_npm(self, query: str) -> List[SearchResult]:
-        """Search NPM registry."""
         try:
-            # Use npm registry search API
-            url = f"https://registry.npmjs.org/-/v1/search"
-            params = {
-                "text": query,
-                "size": 10
-            }
-            
-            response = self.session.get(url, params=params, timeout=15)
-            if response.status_code != 200:
+            url = "https://registry.npmjs.org/-/v1/search"
+            r = self.session.get(url, params={"text": query, "size": 10}, timeout=15)
+            if r.status_code != 200:
                 return []
-            
-            data = response.json()
+            data = r.json()
             results = []
-            
-            for item in data.get("objects", []):
-                package = item.get("package", {})
-                
-                # Calculate relevance score
-                score = item.get("score", {}).get("final", 0) * 100
-                
-                result = SearchResult(
-                    name=package.get("name", ""),
-                    description=package.get("description", "")[:200],
-                    version=package.get("version", "unknown"),
+            for obj in data.get("objects", []):
+                pkg = obj.get("package", {})
+                score = obj.get("score", {}).get("final", 0) * 100
+                results.append(SearchResult(
+                    name=pkg.get("name", ""),
+                    description=pkg.get("description", "")[:200],
+                    version=pkg.get("version", "unknown"),
                     manager="npm",
-                    homepage=package.get("homepage") or package.get("repository", {}).get("url"),
+                    homepage=pkg.get("homepage") or pkg.get("repository", {}).get("url"),
                     relevance_score=score
-                )
-                results.append(result)
-            
+                ))
             return results
-            
-        except Exception as e:
-            if LOG.verbose:
-                cprint(f"NPM search error: {e}", "WARNING")
-            return []
-    
-    def _search_brew(self, query: str) -> List[SearchResult]:
-        """Search Homebrew formulae."""
-        try:
-            # Use Homebrew API
-            url = f"https://formulae.brew.sh/api/formula.json"
-            
-            # Check cache first
-            cache_file = CROSSFIRE_CACHE / "brew_formulae.json"
-            cache_valid = False
-            
-            if cache_file.exists():
-                cache_age = time.time() - cache_file.stat().st_mtime
-                cache_valid = cache_age < self.cache_timeout
-            
-            if cache_valid:
-                with open(cache_file, 'r') as f:
-                    formulae = json.load(f)
-            else:
-                response = self.session.get(url, timeout=20)
-                if response.status_code != 200:
-                    return []
-                
-                formulae = response.json()
-                # Cache the results
-                with open(cache_file, 'w') as f:
-                    json.dump(formulae, f)
-            
-            results = []
-            query_lower = query.lower()
-            
-            for formula in formulae:
-                name = formula.get("name", "")
-                desc = formula.get("desc", "")
-                
-                # Calculate relevance score
-                score = 0
-                if query_lower in name.lower():
-                    score += 50
-                if query_lower in desc.lower():
-                    score += 30
-                
-                if score > 0:
-                    result = SearchResult(
-                        name=name,
-                        description=desc[:200],
-                        version=formula.get("versions", {}).get("stable", "unknown"),
-                        manager="brew",
-                        homepage=formula.get("homepage"),
-                        relevance_score=score
-                    )
-                    results.append(result)
-            
-            return sorted(results, key=lambda x: x.relevance_score, reverse=True)[:10]
-            
-        except Exception as e:
-            if LOG.verbose:
-                cprint(f"Brew search error: {e}", "WARNING")
+        except:
             return []
 
+    def _search_brew(self, query: str) -> List[SearchResult]:
+        try:
+            url = "https://formulae.brew.sh/api/formula.json"
+            cache_file = CROSSFIRE_CACHE / "brew_formulae.json"
+            if cache_file.exists() and (time.time() - cache_file.stat().st_mtime < self.cache_timeout):
+                formulae = json.load(open(cache_file))
+            else:
+                r = self.session.get(url, timeout=20)
+                if r.status_code != 200:
+                    return []
+                formulae = r.json()
+                json.dump(formulae, open(cache_file, "w"))
+            results = []
+            for f in formulae:
+                name, desc = f.get("name", ""), f.get("desc", "")
+                score = 0
+                if query.lower() in name.lower(): score += 50
+                if query.lower() in desc.lower(): score += 30
+                if score > 0:
+                    results.append(SearchResult(
+                        name=name, description=desc[:200],
+                        version=f.get("versions", {}).get("stable", "unknown"),
+                        manager="brew", homepage=f.get("homepage"), relevance_score=score))
+            return sorted(results, key=lambda x: x.relevance_score, reverse=True)[:10]
+        except:
+            return []
+
+    # ---------------- Linux Managers ---------------- #
+    def _search_apt(self, query: str): return self._cli_search(["apt-cache", "search", query], "apt")
+    def _search_dnf(self, query: str): return self._cli_search(["dnf", "search", query], "dnf")
+    def _search_yum(self, query: str): return self._cli_search(["yum", "search", query], "yum")
+    def _search_pacman(self, query: str): return self._cli_search(["pacman", "-Ss", query], "pacman")
+    def _search_zypper(self, query: str): return self._cli_search(["zypper", "search", query], "zypper")
+    def _search_apk(self, query: str): return self._cli_search(["apk", "search", query], "apk")
+
+    # ---------------- Windows Managers ---------------- #
+    def _search_choco(self, query: str): return self._cli_search(["choco", "search", query], "choco")
+    def _search_winget(self, query: str): return self._cli_search(["winget", "search", query], "winget")
+
+    # ---------------- Universal Managers ---------------- #
+    def _search_snap(self, query: str): return self._cli_search(["snap", "find", query], "snap")
+    def _search_flatpak(self, query: str): return self._cli_search(["flatpak", "search", query], "flatpak")
+
+    # ---------------- Helper ---------------- #
+    def _cli_search(self, cmd: List[str], manager: str) -> List[SearchResult]:
+        res = run_command(cmd, timeout=30)
+        results = []
+        if res.ok:
+            for line in res.out.splitlines():
+                parts = line.strip().split(None, 1)
+                if len(parts) >= 1:
+                    name = parts[0]
+                    desc = parts[1] if len(parts) > 1 else ""
+                    results.append(SearchResult(
+                        name=name, description=desc[:200],
+                        version="unknown", manager=manager, relevance_score=5))
+        return results[:10]
+
 search_engine = RealSearchEngine()
+
 
 # ============================================================================
 # Enhanced Command Execution
@@ -606,11 +567,11 @@ def run_command(cmd: Union[List[str], str], timeout=300, retries=1, show_progres
     
     cmd_str = ' '.join(cmd) if isinstance(cmd, list) else cmd
     if LOG.verbose:
-        cprint(f"🔧 Running: {cmd_str}", "INFO")
+        cprint(f"Running: {cmd_str}", "INFO")
     
     for attempt in range(retries + 1):
         if attempt > 0:
-            cprint(f"🔄 Retry attempt {attempt}/{retries}", "WARNING")
+            cprint(f"Retry attempt {attempt}/{retries}", "WARNING")
             time.sleep(2)
         
         try:
@@ -651,7 +612,7 @@ def run_command(cmd: Union[List[str], str], timeout=300, retries=1, show_progres
             )
             
             if LOG.verbose and not result.ok:
-                cprint(f"❌ Command failed with exit code {result.code}", "ERROR")
+                cprint(f"Command failed with exit code {result.code}", "ERROR")
                 if result.err:
                     cprint(f"Error output: {result.err[:500]}", "ERROR")
             
@@ -666,13 +627,15 @@ def run_command(cmd: Union[List[str], str], timeout=300, retries=1, show_progres
 
 def _show_progress_dots(process):
     """Show progress dots while a process is running."""
+    spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+    i = 0
     while process.poll() is None:
-        for dot in ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]:
-            if process.poll() is not None:
-                return
-            sys.stdout.write(f"\r{dot} Working...")
-            sys.stdout.flush()
-            time.sleep(0.1)
+        if process.poll() is not None:
+            return
+        sys.stdout.write(f"\r{spinner_chars[i % len(spinner_chars)]} Working...")
+        sys.stdout.flush()
+        time.sleep(0.1)
+        i += 1
     sys.stdout.write("\r" + " " * 20 + "\r")  # Clear the line
 
 # ============================================================================
@@ -807,6 +770,7 @@ def _detect_installed_managers() -> Dict[str, bool]:
     
     return available
 
+
 def _looks_like_python_pkg(pkg: str) -> bool:
     """Heuristics for Python packages."""
     python_indicators = ["==", ">=", "<=", "~=", "!=", "[", "]"]
@@ -920,16 +884,124 @@ def _extract_package_version(output: str, manager: str) -> str:
     return "installed"
 
 # ============================================================================
+# Manager Installation System (Cross-Platform)
+# ============================================================================
+
+MANAGER_SETUP = {
+    "pip": {
+        "os": ["windows", "linux", "macos"],
+        "install": "Pip is bundled with Python 3.4+. Run: python -m ensurepip --upgrade",
+        "install_cmd": [sys.executable, "-m", "ensurepip", "--upgrade"]
+    },
+    "npm": {
+        "os": ["windows", "linux", "macos"],
+        "install": "https://nodejs.org/ (download Node.js which includes npm)",
+        "install_cmd": None
+    },
+    "apt": {
+        "os": ["linux"],
+        "install": "APT is preinstalled on Debian/Ubuntu systems",
+        "install_cmd": None
+    },
+    "dnf": {
+        "os": ["linux"],
+        "install": "DNF is preinstalled on Fedora systems",
+        "install_cmd": None
+    },
+    "yum": {
+        "os": ["linux"],
+        "install": "YUM is preinstalled on RHEL/CentOS systems",
+        "install_cmd": None
+    },
+    "pacman": {
+        "os": ["linux"],
+        "install": "pacman is preinstalled on Arch Linux",
+        "install_cmd": None
+    },
+    "zypper": {
+        "os": ["linux"],
+        "install": "zypper is preinstalled on openSUSE",
+        "install_cmd": None
+    },
+    "apk": {
+        "os": ["linux"],
+        "install": "apk is bundled with Alpine Linux",
+        "install_cmd": None
+    },
+    "brew": {
+        "os": ["macos", "linux"],
+        "install": '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
+        "install_cmd": None  # Requires shell execution
+    },
+    "choco": {
+        "os": ["windows"],
+        "install": 'Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString("https://chocolatey.org/install.ps1"))',
+        "install_cmd": None  # Requires PowerShell
+    },
+    "winget": {
+        "os": ["windows"],
+        "install": "winget is preinstalled on Windows 11. Install via Microsoft Store on Windows 10.",
+        "install_cmd": None
+    },
+    "snap": {
+        "os": ["linux"],
+        "install": "Install snapd package",
+        "install_cmd": ["sudo", "apt", "install", "-y", "snapd"]
+    },
+    "flatpak": {
+        "os": ["linux"],
+        "install": "Install flatpak package",
+        "install_cmd": ["sudo", "apt", "install", "-y", "flatpak"]
+    },
+}
+
+def install_manager(manager: str) -> bool:
+    """Attempt to install a package manager if supported on this OS."""
+    manager = manager.lower()
+    info = MANAGER_SETUP.get(manager)
+    if not info:
+        cprint(f"Manager '{manager}' not supported.", "ERROR")
+        return False
+    
+    os_name = _os_type()
+    if os_name not in info["os"]:
+        cprint(f"{manager} is not supported on this OS ({os_name}).", "ERROR")
+        return False
+    
+    # Check if already installed
+    if _detect_installed_managers().get(manager, False):
+        cprint(f"{_manager_human(manager)} is already installed.", "SUCCESS")
+        return True
+    
+    cmd = info.get("install_cmd")
+    install_msg = info.get("install")
+    
+    if cmd:
+        cprint(f"Installing {_manager_human(manager)}...", "INFO")
+        result = run_command(cmd, timeout=900, show_progress=True)
+        if result.ok:
+            cprint(f"Successfully installed {_manager_human(manager)}", "SUCCESS")
+            return True
+        else:
+            cprint(f"Failed to install {_manager_human(manager)}: {result.err}", "ERROR")
+            return False
+    else:
+        cprint(f"Manual installation required for {_manager_human(manager)}:", "WARNING")
+        cprint(f"  {install_msg}", "INFO")
+        return False
+
+
+# ============================================================================
 # Package Installation & Removal
 # ============================================================================
 
 def install_package(pkg: str, preferred_manager: Optional[str] = None) -> Tuple[bool, List[Tuple[str, RunResult]]]:
     """Install a package using available managers with enhanced progress tracking."""
-    cprint(f"📦 Preparing to install: {Colors.BOLD}{pkg}{Colors.RESET}", "INFO")
+    cprint(f"Preparing to install: {pkg}", "INFO")
     installed = _detect_installed_managers()
     
     if not any(installed.values()):
-        cprint("❌ No supported package managers are available on this system.", "ERROR")
+        cprint("No supported package managers are available on this system.", "ERROR")
         return (False, [])
     
     attempts: List[Tuple[str, RunResult]] = []
@@ -945,10 +1017,10 @@ def install_package(pkg: str, preferred_manager: Optional[str] = None) -> Tuple[
             cprint(f"Warning: --manager '{preferred_manager}' not available. Available: {', '.join(available_managers)}", "WARNING")
 
     if not candidates:
-        cprint("❌ No package managers available for installation.", "ERROR")
+        cprint("No package managers available for installation.", "ERROR")
         return (False, [])
 
-    cprint("📋 Installation plan:", "CYAN")
+    cprint("Installation plan:", "CYAN")
     for i, m in enumerate(candidates, 1):
         cprint(f"  {i}. {_manager_human(m)}", "MUTED")
 
@@ -959,7 +1031,7 @@ def install_package(pkg: str, preferred_manager: Optional[str] = None) -> Tuple[
             
         try:
             cmd = cmd_builder(pkg)
-            cprint(f"→ Attempt {i}/{len(candidates)}: Installing via {Colors.BOLD}{_manager_human(manager)}{Colors.RESET}...", "INFO")
+            cprint(f"Attempt {i}/{len(candidates)}: Installing via {_manager_human(manager)}...", "INFO")
             
             # Use longer timeout for installations with progress tracking
             res = run_command(cmd, timeout=1800, retries=0, show_progress=True)
@@ -970,7 +1042,7 @@ def install_package(pkg: str, preferred_manager: Optional[str] = None) -> Tuple[
                 version = _extract_package_version(res.out, manager)
                 package_db.add_package(pkg, version, manager, ' '.join(cmd))
                 
-                cprint(f"✅ Successfully installed '{Colors.BOLD}{pkg}{Colors.RESET}' via {Colors.SUCCESS}{_manager_human(manager)}{Colors.RESET}", "SUCCESS")
+                cprint(f"Successfully installed '{pkg}' via {_manager_human(manager)}", "SUCCESS")
                 return (True, attempts)
             else:
                 # Show more helpful error messages
@@ -981,25 +1053,25 @@ def install_package(pkg: str, preferred_manager: Optional[str] = None) -> Tuple[
                     relevant_error = error_lines[-1] if error_lines else "Unknown error"
                     if len(relevant_error) > 180:
                         relevant_error = relevant_error[:177] + "..."
-                    cprint(f"❌ {_manager_human(manager)} failed: {relevant_error}", "WARNING")
+                    cprint(f"{_manager_human(manager)} failed: {relevant_error}", "WARNING")
                 else:
-                    cprint(f"❌ {_manager_human(manager)} failed with no error message", "WARNING")
+                    cprint(f"{_manager_human(manager)} failed with no error message", "WARNING")
                     
         except Exception as e:
             err_result = RunResult(False, -1, "", str(e))
             attempts.append((manager, err_result))
-            cprint(f"❌ {_manager_human(manager)} failed with exception: {str(e)}", "WARNING")
+            cprint(f"{_manager_human(manager)} failed with exception: {str(e)}", "WARNING")
 
-    cprint(f"❌ Failed to install '{Colors.BOLD}{pkg}{Colors.RESET}' with all available managers.", "ERROR")
+    cprint(f"Failed to install '{pkg}' with all available managers.", "ERROR")
     return (False, attempts)
 
 def remove_package(pkg: str, manager: Optional[str] = None) -> Tuple[bool, List[Tuple[str, RunResult]]]:
     """Remove a package using available managers with enhanced UI."""
-    cprint(f"🗑️ Preparing to remove: {Colors.BOLD}{pkg}{Colors.RESET}", "INFO")
+    cprint(f"Preparing to remove: {pkg}", "INFO")
     installed = _detect_installed_managers()
     
     if not any(installed.values()):
-        cprint("❌ No supported package managers are available on this system.", "ERROR")
+        cprint("No supported package managers are available on this system.", "ERROR")
         return (False, [])
     
     attempts: List[Tuple[str, RunResult]] = []
@@ -1008,7 +1080,7 @@ def remove_package(pkg: str, manager: Optional[str] = None) -> Tuple[bool, List[
         if manager.lower() in MANAGER_REMOVE_HANDLERS and installed.get(manager.lower()):
             candidates = [manager.lower()]
         else:
-            cprint(f"❌ Manager '{manager}' not available for package removal", "ERROR")
+            cprint(f"Manager '{manager}' not available for package removal", "ERROR")
             return (False, [])
     else:
         # Try managers in order of likelihood
@@ -1017,7 +1089,7 @@ def remove_package(pkg: str, manager: Optional[str] = None) -> Tuple[bool, List[
         candidates = [m for m in candidates if m in MANAGER_REMOVE_HANDLERS]
 
     if not candidates:
-        cprint("❌ No package managers available for package removal.", "ERROR")
+        cprint("No package managers available for package removal.", "ERROR")
         return (False, [])
 
     for mgr in candidates:
@@ -1027,7 +1099,7 @@ def remove_package(pkg: str, manager: Optional[str] = None) -> Tuple[bool, List[
             
         try:
             cmd = cmd_builder(pkg)
-            cprint(f"→ Attempting removal via {Colors.BOLD}{_manager_human(mgr)}{Colors.RESET}...", "INFO")
+            cprint(f"Attempting removal via {_manager_human(mgr)}...", "INFO")
             
             res = run_command(cmd, timeout=600, retries=0, show_progress=True)
             attempts.append((mgr, res))
@@ -1036,7 +1108,7 @@ def remove_package(pkg: str, manager: Optional[str] = None) -> Tuple[bool, List[
                 # Remove from database
                 package_db.remove_package(pkg, mgr)
                 
-                cprint(f"✅ Removed '{Colors.BOLD}{pkg}{Colors.RESET}' via {Colors.SUCCESS}{_manager_human(mgr)}{Colors.RESET}", "SUCCESS")
+                cprint(f"Removed '{pkg}' via {_manager_human(mgr)}", "SUCCESS")
                 return (True, attempts)
             else:
                 err_msg = (res.err or res.out).strip()
@@ -1045,16 +1117,16 @@ def remove_package(pkg: str, manager: Optional[str] = None) -> Tuple[bool, List[
                     relevant_error = error_lines[-1] if error_lines else "Unknown error"
                     if len(relevant_error) > 180:
                         relevant_error = relevant_error[:177] + "..."
-                    cprint(f"❌ {_manager_human(mgr)} failed: {relevant_error}", "WARNING")
+                    cprint(f"{_manager_human(mgr)} failed: {relevant_error}", "WARNING")
                 else:
-                    cprint(f"❌ {_manager_human(mgr)} failed with no error message", "WARNING")
+                    cprint(f"{_manager_human(mgr)} failed with no error message", "WARNING")
                     
         except Exception as e:
             err_result = RunResult(False, -1, "", str(e))
             attempts.append((mgr, err_result))
-            cprint(f"❌ {_manager_human(mgr)} failed with exception: {str(e)}", "WARNING")
+            cprint(f"{_manager_human(mgr)} failed with exception: {str(e)}", "WARNING")
 
-    cprint(f"❌ Failed to remove '{Colors.BOLD}{pkg}{Colors.RESET}' with all available managers.", "ERROR")
+    cprint(f"Failed to remove '{pkg}' with all available managers.", "ERROR")
     return (False, attempts)
 
 # ============================================================================
@@ -1063,7 +1135,7 @@ def remove_package(pkg: str, manager: Optional[str] = None) -> Tuple[bool, List[
 
 def cleanup_system() -> Dict[str, Dict[str, str]]:
     """Clean up package manager caches and temporary files with progress tracking."""
-    cprint("🧹 Starting comprehensive system cleanup...", "INFO")
+    cprint("Starting comprehensive system cleanup...", "INFO")
     results = {}
     installed = _detect_installed_managers()
     
@@ -1087,20 +1159,20 @@ def cleanup_system() -> Dict[str, Dict[str, str]]:
     
     for manager, cmd in available_cleanups:
         try:
-            cprint(f"→ Cleaning {Colors.BOLD}{_manager_human(manager)}{Colors.RESET}...", "INFO")
+            cprint(f"Cleaning {_manager_human(manager)}...", "INFO")
             use_shell = isinstance(cmd, str)
             result = run_command(cmd, timeout=300, shell=use_shell)
             
             if result.ok:
                 results[manager] = {"ok": "true", "msg": "Cleanup successful"}
-                cprint(f"✅ {_manager_human(manager)}: Cleanup successful", "SUCCESS")
+                cprint(f"{_manager_human(manager)}: Cleanup successful", "SUCCESS")
             else:
                 results[manager] = {"ok": "false", "msg": result.err or "Cleanup failed"}
-                cprint(f"❌ {_manager_human(manager)}: Cleanup failed", "WARNING")
+                cprint(f"{_manager_human(manager)}: Cleanup failed", "WARNING")
                 
         except Exception as e:
             results[manager] = {"ok": "false", "msg": f"Exception: {e}"}
-            cprint(f"❌ {_manager_human(manager)}: Exception during cleanup: {e}", "WARNING")
+            cprint(f"{_manager_human(manager)}: Exception during cleanup: {e}", "WARNING")
         finally:
             progress.update(1)
     
@@ -1108,7 +1180,7 @@ def cleanup_system() -> Dict[str, Dict[str, str]]:
     
     successful = sum(1 for r in results.values() if r.get("ok") == "true")
     total = len(results)
-    cprint(f"📊 Cleanup complete: {Colors.BOLD}{successful}/{total}{Colors.RESET} managers cleaned successfully", 
+    cprint(f"Cleanup complete: {successful}/{total} managers cleaned successfully", 
            "SUCCESS" if successful > 0 else "WARNING")
     
     return results
@@ -1159,8 +1231,8 @@ def _update_all_managers() -> Dict[str, Dict[str, str]]:
         name, ok, msg = _update_manager(manager)
         results[name] = {"ok": str(ok).lower(), "msg": msg}
         
-        status_icon = "✅" if ok else "❌"
-        cprint(f"{status_icon} {_manager_human(name)}: {msg}", "SUCCESS" if ok else "WARNING")
+        status_icon = "Success" if ok else "Failed"
+        cprint(f"{_manager_human(name)}: {msg}", "SUCCESS" if ok else "WARNING")
         progress.update()
     
     progress.finish()
@@ -1173,7 +1245,7 @@ def _update_all_managers() -> Dict[str, Dict[str, str]]:
 def download_file_with_progress(url: str, dest_path: Path, expected_hash: Optional[str] = None) -> bool:
     """Download a file with progress bar and hash verification."""
     try:
-        cprint(f"🌐 Downloading from: {url}", "INFO")
+        cprint(f"Downloading from: {url}", "INFO")
         
         # Get file info
         request = urllib.request.Request(url)
@@ -1183,7 +1255,7 @@ def download_file_with_progress(url: str, dest_path: Path, expected_hash: Option
             total_size = int(response.info().get('Content-Length', 0))
             
             if total_size == 0:
-                cprint("⚠️ Warning: Cannot determine file size", "WARNING")
+                cprint("Warning: Cannot determine file size", "WARNING")
                 total_size = 1024 * 1024  # Assume 1MB
             
             # Setup progress tracking
@@ -1211,26 +1283,26 @@ def download_file_with_progress(url: str, dest_path: Path, expected_hash: Option
             if expected_hash:
                 actual_hash = hash_sha256.hexdigest()
                 if actual_hash.lower() != expected_hash.lower():
-                    cprint(f"❌ Hash verification failed!", "ERROR")
+                    cprint(f"Hash verification failed!", "ERROR")
                     cprint(f"Expected: {expected_hash}", "ERROR")
                     cprint(f"Actual:   {actual_hash}", "ERROR")
                     dest_path.unlink()  # Remove bad file
                     return False
                 else:
-                    cprint("✅ Hash verification successful", "SUCCESS")
+                    cprint("Hash verification successful", "SUCCESS")
             
-            cprint(f"✅ Downloaded {downloaded / 1024 / 1024:.1f} MB successfully", "SUCCESS")
+            cprint(f"Downloaded {downloaded / 1024 / 1024:.1f} MB successfully", "SUCCESS")
             return True
             
     except Exception as e:
-        cprint(f"❌ Download failed: {e}", "ERROR")
+        cprint(f"Download failed: {e}", "ERROR")
         if dest_path.exists():
             dest_path.unlink()
         return False
 
 def cross_update(url: str, verify_sha256: Optional[str] = None) -> bool:
     """Self-update CrossFire from URL with verification."""
-    cprint(f"🔄 Starting CrossFire self-update...", "INFO")
+    cprint(f"Starting CrossFire self-update...", "INFO")
     
     try:
         # Download to temporary file
@@ -1246,7 +1318,7 @@ def cross_update(url: str, verify_sha256: Optional[str] = None) -> bool:
         backup_path = current_script.with_suffix('.py.backup')
         if current_script.exists():
             shutil.copy2(current_script, backup_path)
-            cprint(f"📋 Backup created: {backup_path}", "INFO")
+            cprint(f"Backup created: {backup_path}", "INFO")
         
         # Replace current script
         shutil.copy2(temp_file, current_script)
@@ -1258,12 +1330,12 @@ def cross_update(url: str, verify_sha256: Optional[str] = None) -> bool:
         # Clean up
         temp_file.unlink()
         
-        cprint(f"✅ CrossFire updated successfully!", "SUCCESS")
-        cprint(f"🔄 Please restart CrossFire to use the new version", "INFO")
+        cprint(f"CrossFire updated successfully!", "SUCCESS")
+        cprint(f"Please restart CrossFire to use the new version", "INFO")
         return True
         
     except Exception as e:
-        cprint(f"❌ Update failed: {e}", "ERROR")
+        cprint(f"Update failed: {e}", "ERROR")
         return False
 
 # ============================================================================
@@ -1300,7 +1372,7 @@ def get_system_info() -> Dict[str, Any]:
 
 def health_check() -> Dict[str, Any]:
     """Run comprehensive system health check."""
-    cprint("🏥 Running system health check...", "INFO")
+    cprint("Running system health check...", "INFO")
     
     results = {
         "overall_status": "healthy",
@@ -1384,19 +1456,19 @@ def health_check() -> Dict[str, Any]:
     # Display results
     if not LOG.json_mode:
         status_colors = {"healthy": "SUCCESS", "needs_attention": "WARNING", "unhealthy": "ERROR"}
-        status_icons = {"healthy": "✅", "needs_attention": "⚠️", "unhealthy": "❌"}
+        status_icons = {"healthy": "Healthy", "needs_attention": "Needs Attention", "unhealthy": "Unhealthy"}
         
         overall_status = results["overall_status"]
-        cprint(f"{status_icons[overall_status]} Overall Status: {overall_status.upper()}", status_colors[overall_status])
+        cprint(f"Overall Status: {status_icons[overall_status].upper()}", status_colors[overall_status])
         
         for check_name, check_result in results["checks"].items():
             status = check_result.get("status", "unknown")
-            icon = {"good": "✅", "warning": "⚠️", "error": "❌", "unknown": "❓"}[status]
-            cprint(f"  {icon} {check_name.replace('_', ' ').title()}: {status}", 
+            icon = {"good": "Good", "warning": "Warning", "error": "Error", "unknown": "Unknown"}[status]
+            cprint(f"  {check_name.replace('_', ' ').title()}: {icon}", 
                    {"good": "SUCCESS", "warning": "WARNING", "error": "ERROR", "unknown": "INFO"}[status])
         
         if results["recommendations"]:
-            cprint("\n💡 Recommendations:", "CYAN")
+            cprint("\nRecommendations:", "CYAN")
             for i, rec in enumerate(results["recommendations"], 1):
                 cprint(f"  {i}. {rec}", "INFO")
     
@@ -1408,7 +1480,7 @@ def health_check() -> Dict[str, Any]:
 
 def add_to_path_safely() -> bool:
     """Add CrossFire to PATH safely across different shells and platforms."""
-    cprint("🛤️ Adding CrossFire to PATH...", "INFO")
+    cprint("Adding CrossFire to PATH...", "INFO")
     
     try:
         # Determine the target installation directory
@@ -1446,46 +1518,81 @@ def add_to_path_safely() -> bool:
                     with config_file.open('a') as f:
                         f.write(f'\n# Added by CrossFire\nexport PATH="{path_entry}:$PATH"\n')
                     
-                    cprint(f"✅ Updated {config_file.name}", "SUCCESS")
+                    cprint(f"Updated {config_file.name}", "SUCCESS")
                 except Exception as e:
-                    cprint(f"⚠️ Could not update {config_file.name}: {e}", "WARNING")
+                    cprint(f"Could not update {config_file.name}: {e}", "WARNING")
         
         return True
         
     except Exception as e:
-        cprint(f"❌ Failed to add to PATH: {e}", "ERROR")
+        cprint(f"Failed to add to PATH: {e}", "ERROR")
         return False
 
-def install_launcher() -> Optional[str]:
-    """Install CrossFire launcher globally."""
-    cprint("⚙️ Installing CrossFire launcher...", "INFO")
-    
+def install_launcher(target_dir: Optional[str] = None) -> Optional[str]:
+    """Install CrossFire launcher globally (with optional custom path)."""
+    cprint("Installing CrossFire launcher...", "INFO")
+
     try:
-        # Determine installation path
-        if OS_NAME == "Windows":
+        if target_dir:
+            install_dir = Path(target_dir).expanduser().resolve()
+        elif OS_NAME == "Windows":
             install_dir = Path.home() / "AppData" / "Local" / "CrossFire"
-            launcher_name = "crossfire.exe"  # Could create a batch wrapper
         else:
             install_dir = Path.home() / ".local" / "bin"
-            launcher_name = "crossfire"
-        
+
         install_dir.mkdir(parents=True, exist_ok=True)
+
+        launcher_name = "crossfire.exe" if OS_NAME == "Windows" else "crossfire"
         launcher_path = install_dir / launcher_name
-        
-        # Copy current script to installation location
+
+        # Copy current script
         current_script = Path(__file__).resolve()
         shutil.copy2(current_script, launcher_path)
-        
-        # Make executable on Unix systems
+
         if OS_NAME != "Windows":
             launcher_path.chmod(launcher_path.stat().st_mode | stat.S_IEXEC)
-        
-        cprint(f"✅ Launcher installed to: {launcher_path}", "SUCCESS")
+
+        cprint(f"Launcher installed to: {launcher_path}", "SUCCESS")
         return str(launcher_path)
-        
     except Exception as e:
-        cprint(f"❌ Failed to install launcher: {e}", "ERROR")
-        return None
+        cprint(f"Failed to install launcher: {e}", "ERROR")
+    return None
+
+    def change_install_location(new_dir: str) -> bool:
+        """Move CrossFire installation to a new directory."""
+        try:
+            new_dir = Path(new_dir).expanduser().resolve()
+            new_dir.mkdir(parents=True, exist_ok=True)
+
+            # Determine current launcher path
+            if OS_NAME == "Windows":
+                old_dir = Path.home() / "AppData" / "Local" / "CrossFire"
+                launcher_name = "crossfire.exe"
+            else:
+                old_dir = Path.home() / ".local" / "bin"
+                launcher_name = "crossfire"
+
+            old_launcher = old_dir / launcher_name
+            if not old_launcher.exists():
+                cprint("No existing launcher found to move.", "WARNING")
+                return False
+
+            new_launcher = new_dir / launcher_name
+            try:
+                shutil.move(str(old_launcher), str(new_launcher))
+            except Exception as move_err:
+                cprint(f"Could not move launcher: {move_err}", "ERROR")
+                return False
+
+            if OS_NAME != "Windows":
+                new_launcher.chmod(new_launcher.stat().st_mode | stat.S_IEXEC)
+
+            cprint(f"Launcher moved to: {new_launcher}", "SUCCESS")
+            return True
+
+        except Exception as e:
+            cprint(f"Failed to change install location: {e}", "ERROR")
+        return False
 
 def list_managers_status() -> Dict[str, str]:
     """Get status of all package managers."""
@@ -1507,11 +1614,11 @@ def show_installed_packages():
         return
     
     if not packages:
-        cprint("📦 No packages have been installed via CrossFire yet.", "INFO")
-        cprint("💡 Packages installed directly via other managers won't appear here.", "MUTED")
+        cprint("No packages have been installed via CrossFire yet.", "INFO")
+        cprint("Packages installed directly via other managers won't appear here.", "MUTED")
         return
     
-    cprint(f"📦 {Colors.BOLD}Packages Installed via CrossFire ({len(packages)}){Colors.RESET}", "SUCCESS")
+    cprint(f"Packages Installed via CrossFire ({len(packages)})", "SUCCESS")
     cprint("=" * 70, "CYAN")
     
     # Group by manager
@@ -1524,17 +1631,17 @@ def show_installed_packages():
     
     for manager in sorted(by_manager.keys()):
         pkgs = by_manager[manager]
-        cprint(f"\n🔧 {Colors.BOLD}{_manager_human(manager)} ({len(pkgs)} packages){Colors.RESET}", "INFO")
+        cprint(f"\n{_manager_human(manager)} ({len(pkgs)} packages)", "INFO")
         
         for i, pkg in enumerate(sorted(pkgs, key=lambda x: x['install_date'], reverse=True), 1):
             install_date = pkg['install_date'][:10] if pkg['install_date'] else 'unknown'  # Just date part
             version = pkg.get('version', 'unknown')
             
-            cprint(f"  {i:2d}. {Colors.SUCCESS}{pkg['name']}{Colors.RESET} "
-                   f"{Colors.MUTED}v{version}{Colors.RESET} "
-                   f"{Colors.MUTED}(installed {install_date}){Colors.RESET}", "SUCCESS")
+            cprint(f"  {i:2d}. {pkg['name']} "
+                   f"v{version} "
+                   f"(installed {install_date})", "SUCCESS")
     
-    cprint(f"\n💡 Remove with: {Colors.BOLD}crossfire -r <package_name>{Colors.RESET}", "INFO")
+    cprint(f"\nRemove with: crossfire -r <package_name>", "INFO")
 
 def get_package_statistics() -> Dict[str, Any]:
     """Get detailed package statistics."""
@@ -1579,17 +1686,17 @@ def show_statistics():
         print(json.dumps(stats, indent=2, default=str))
         return
     
-    cprint(f"📊 {Colors.BOLD}CrossFire Statistics{Colors.RESET}", "SUCCESS")
+    cprint(f"CrossFire Statistics", "SUCCESS")
     cprint("=" * 50, "CYAN")
     
     # Overview
-    cprint(f"\n📈 {Colors.BOLD}Overview{Colors.RESET}", "INFO")
-    cprint(f"  Total packages installed via CrossFire: {Colors.BOLD}{stats['total_packages']}{Colors.RESET}", "SUCCESS")
-    cprint(f"  Available package managers: {Colors.BOLD}{stats['available_managers']}/{stats['total_supported_managers']}{Colors.RESET}", "SUCCESS")
+    cprint(f"\nOverview", "INFO")
+    cprint(f"  Total packages installed via CrossFire: {stats['total_packages']}", "SUCCESS")
+    cprint(f"  Available package managers: {stats['available_managers']}/{stats['total_supported_managers']}", "SUCCESS")
     
     # Packages by manager
     if stats["packages_by_manager"]:
-        cprint(f"\n🔧 {Colors.BOLD}Packages by Manager{Colors.RESET}", "INFO")
+        cprint(f"\nPackages by Manager", "INFO")
         for manager, count in sorted(stats["packages_by_manager"].items(), key=lambda x: x[1], reverse=True):
             percentage = (count / stats['total_packages']) * 100
             bar_length = int(percentage / 5)  # Scale to 20 chars max
@@ -1598,22 +1705,22 @@ def show_statistics():
     
     # Recent activity
     if stats["recent_installations"]:
-        cprint(f"\n⏰ {Colors.BOLD}Recent Installations (Last 7 Days){Colors.RESET}", "INFO")
+        cprint(f"\nRecent Installations (Last 7 Days)", "INFO")
         for pkg in stats["recent_installations"][:5]:  # Show last 5
             date = pkg['date'][:10] if pkg['date'] else 'unknown'
-            cprint(f"  • {Colors.SUCCESS}{pkg['name']}{Colors.RESET} via {_manager_human(pkg['manager'])} on {date}", "SUCCESS")
+            cprint(f"  • {pkg['name']} via {_manager_human(pkg['manager'])} on {date}", "SUCCESS")
         
         if len(stats["recent_installations"]) > 5:
             cprint(f"  ... and {len(stats['recent_installations']) - 5} more", "MUTED")
 
 def bulk_install_from_file(file_path: str) -> Dict[str, Any]:
     """Install packages from a requirements file."""
-    cprint(f"📋 Installing packages from: {file_path}", "INFO")
+    cprint(f"Installing packages from: {file_path}", "INFO")
     
     try:
         path = Path(file_path)
         if not path.exists():
-            cprint(f"❌ File not found: {file_path}", "ERROR")
+            cprint(f"File not found: {file_path}", "ERROR")
             return {"success": False, "error": "File not found"}
         
         content = path.read_text().strip()
@@ -1621,10 +1728,10 @@ def bulk_install_from_file(file_path: str) -> Dict[str, Any]:
                 if line.strip() and not line.startswith('#')]
         
         if not lines:
-            cprint("⚠️ No packages found in file", "WARNING")
+            cprint("No packages found in file", "WARNING")
             return {"success": False, "error": "No packages found"}
         
-        cprint(f"📦 Found {len(lines)} packages to install", "INFO")
+        cprint(f"Found {len(lines)} packages to install", "INFO")
         
         results = {
             "total_packages": len(lines),
@@ -1659,19 +1766,19 @@ def bulk_install_from_file(file_path: str) -> Dict[str, Any]:
         progress.finish()
         
         # Summary
-        cprint(f"\n📊 Installation Summary:", "CYAN")
-        cprint(f"  ✅ Successful: {results['successful']}/{results['total_packages']}", "SUCCESS")
-        cprint(f"  ❌ Failed: {results['failed']}/{results['total_packages']}", "ERROR" if results['failed'] > 0 else "SUCCESS")
+        cprint(f"\nInstallation Summary:", "CYAN")
+        cprint(f"  Successful: {results['successful']}/{results['total_packages']}", "SUCCESS")
+        cprint(f"  Failed: {results['failed']}/{results['total_packages']}", "ERROR" if results['failed'] > 0 else "SUCCESS")
         
         return results
         
     except Exception as e:
-        cprint(f"❌ Error reading file: {e}", "ERROR")
+        cprint(f"Error reading file: {e}", "ERROR")
         return {"success": False, "error": str(e)}
 
 def export_packages(manager: str, output_file: Optional[str] = None) -> bool:
     """Export installed packages to a requirements file."""
-    cprint(f"📤 Exporting packages from {_manager_human(manager)}...", "INFO")
+    cprint(f"Exporting packages from {_manager_human(manager)}...", "INFO")
     
     try:
         packages = package_db.get_installed_packages(manager)
@@ -1700,13 +1807,13 @@ def export_packages(manager: str, output_file: Optional[str] = None) -> bool:
         # Write file
         out_path.write_text(content)
         
-        cprint(f"✅ Exported {len(packages)} packages to: {out_path}", "SUCCESS")
-        cprint(f"💡 Install with: crossfire --install-from {out_path}", "INFO")
+        cprint(f"Exported {len(packages)} packages to: {out_path}", "SUCCESS")
+        cprint(f"Install with: crossfire --install-from {out_path}", "INFO")
         
         return True
         
     except Exception as e:
-        cprint(f"❌ Export failed: {e}", "ERROR")
+        cprint(f"Export failed: {e}", "ERROR")
         return False
 
 # ============================================================================
@@ -1720,49 +1827,68 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Commands:
-  crossfire --setup                   # One-time setup: install launcher & update PATH
-  crossfire --list-managers           # List all supported package managers with status
-  crossfire --list-installed          # NEW: Show packages installed via CrossFire
-  crossfire -s <QUERY>                # REAL: Search across PyPI, NPM, Homebrew
-  crossfire -i <PKG>                  # REAL: Install package with progress tracking
-  crossfire -r <PKG>                  # Remove/uninstall a package
-  crossfire --install-from <FILE>     # NEW: Install packages from requirements file
-  crossfire --export <MANAGER>        # NEW: Export installed packages list
-  crossfire -um <NAME>                # Update a specific manager or 'ALL' 
-  crossfire -cu [URL]                 # Self-update with real download + progress
-  crossfire --speed-test              # REAL: Internet speed test with progress
-  crossfire --ping-test               # REAL: Network latency test to multiple hosts
-  crossfire --cleanup                 # REAL: Clean system with progress tracking
-  crossfire --health-check            # REAL: Comprehensive system health analysis
-  crossfire --stats                   # REAL: Detailed system and package statistics
+  General:
+    --version                   Show CrossFire version
+    -q, --quiet                 Quiet mode (errors only)
+    -v, --verbose               Verbose output
+    --json                      Output results in JSON format
 
-Production Features:
-  • Real search across PyPI, NPM, and Homebrew APIs
-  • Database tracking of installed packages
-  • Real download system with progress bars and hash verification
-  • Comprehensive health monitoring and diagnostics
-  • Multi-threaded operations with proper error handling
-  • Cross-platform support (Windows, macOS, Linux)
+  Package Management:
+    --list-managers             List all supported package managers with status
+    --install-manager <NAME>    Install a specific package manager (pip, npm, brew, etc.)
+    --list-installed            Show packages installed via CrossFire
+    -s, --search <QUERY>        Search across PyPI, NPM, and Homebrew
+    -i, --install <PKG>         Install a package by name
+    -r, --remove <PKG>          Remove/uninstall a package
+    --manager <NAME>            Preferred manager to use (pip, npm, apt, brew, etc.)
+    --install-from <FILE>       Install packages from a requirements file
+    --export <MANAGER>          Export installed packages list
+    -o, --output <FILE>         Output file for export command
+
+  System Management:
+    -um, --update-manager <NAME> Update specific manager or 'ALL'
+    -cu, --crossupdate [URL]     Self-update from URL (default: GitHub)
+    --sha256 <HASH>             Expected SHA256 hash for update verification
+    --cleanup                   Clean package manager caches
+    --health-check              Run comprehensive system health check
+    --stats                     Show detailed package statistics
+    --setup [DIR]               Install CrossFire launcher (optionally at a specific directory)
+    --change-install-location DIR
+                                Move existing CrossFire installation to a new directory
+
+  Network Testing:
+    --speed-test                Test internet download speed
+    --ping-test                 Test network latency to various hosts
+    --test-url <URL>            Custom URL for speed testing
+    --test-duration <SECONDS>   Duration for speed test (default: 10s)
+
+  Search Options:
+    --search-limit <N>          Limit search results (default: 20)
 
 Examples:
-  crossfire --setup                   # Initial setup
-  crossfire -s "web framework"        # Search across all repositories
-  crossfire -i requests --manager pip # Install with specific manager
-  crossfire --list-installed          # Show CrossFire-managed packages
-  crossfire --install-from requirements.txt  # Bulk install
-  crossfire --export pip -o my_packages.txt  # Export package list
-  crossfire --health-check            # System diagnostics
-  crossfire --speed-test              # Test internet connection
+  crossfire --setup
+  crossfire -s "web framework"
+  crossfire -i requests --manager pip
+  crossfire --install-manager brew
+  crossfire --list-installed
+  crossfire --install-from requirements.txt
+  crossfire --export pip -o my_packages.txt
+  crossfire --health-check
+  crossfire --speed-test
+  crossfire --change-install-location ~/mybin
         """,
     )
-    
+
     parser.add_argument("--version", action="version", version=f"CrossFire {__version__}")
+
+    # General / logging
     parser.add_argument("--json", action="store_true", help="Output results in JSON format")
     parser.add_argument("-q", "--quiet", action="store_true", help="Quiet mode (errors only)")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
-    
+
     # Package management
     parser.add_argument("--list-managers", action="store_true", help="List all supported managers and their status")
+    parser.add_argument("--install-manager", metavar="NAME", help="Install a specific package manager (pip, npm, brew, etc.)")
     parser.add_argument("--list-installed", action="store_true", help="Show packages installed via CrossFire")
     parser.add_argument("-s", "--search", metavar="QUERY", help="Search across real package repositories (PyPI, NPM, Homebrew)")
     parser.add_argument("-i", "--install", metavar="PKG", help="Install a package by name")
@@ -1780,25 +1906,35 @@ Examples:
     parser.add_argument("--cleanup", action="store_true", help="Clean package manager caches")
     parser.add_argument("--health-check", action="store_true", help="Run comprehensive system health check")
     parser.add_argument("--stats", action="store_true", help="Show detailed package manager statistics")
-    parser.add_argument("--setup", action="store_true", help="Install CrossFire globally and add to PATH")
-    
+    parser.add_argument(
+        "--setup", nargs="?", const="", metavar="DIR",
+        help="Install CrossFire launcher (optionally at a specific directory)"
+    )
+    parser.add_argument(
+        "--change-install-location", metavar="DIR",
+        help="Move existing CrossFire installation to a new directory"
+    )
+
     # Network testing
     parser.add_argument("--speed-test", action="store_true", help="Test internet download speed")
     parser.add_argument("--ping-test", action="store_true", help="Test network latency to various hosts")
     parser.add_argument("--test-url", metavar="URL", help="Custom URL for speed testing")
-    parser.add_argument("--test-duration", type=int, default=10, metavar="SECONDS", help="Duration for speed test (default: 10s)")
-    
+    parser.add_argument("--test-duration", type=int, default=10, metavar="SECONDS",
+                         help="Duration for speed test (default: 10s)")
+
     # Search options
-    parser.add_argument("--search-limit", type=int, default=20, metavar="N", help="Limit search results (default: 20)")
-    
+    parser.add_argument("--search-limit", type=int, default=20, metavar="N",
+                         help="Limit search results (default: 20)")
+
     return parser
+
 
 def show_enhanced_status() -> int:
     """Shows the enhanced tool status with better formatting."""
     # Welcome header
     cprint("=" * 60, "CYAN")
-    cprint(f"🚀 CrossFire v{__version__} — Universal Package Manager", "SUCCESS")
-    cprint(f"🖥️  System: {OS_NAME} {DISTRO_NAME} {DISTRO_VERSION} ({ARCH})", "INFO")
+    cprint(f"CrossFire v{__version__} — Universal Package Manager", "SUCCESS")
+    cprint(f"System: {OS_NAME} {DISTRO_NAME} {DISTRO_VERSION} ({ARCH})", "INFO")
     cprint("=" * 60, "CYAN")
     
     status_info = list_managers_status()
@@ -1818,44 +1954,45 @@ def show_enhanced_status() -> int:
         installed_managers = sorted([m for m, s in status_info.items() if s == "Installed"])
         not_installed = sorted([m for m, s in status_info.items() if s != "Installed"])
         
-        cprint(f"\n✅ {Colors.BOLD}Available Package Managers ({len(installed_managers)}):{Colors.RESET}", "SUCCESS")
+        cprint(f"\nAvailable Package Managers ({len(installed_managers)}):", "SUCCESS")
         if installed_managers:
             for i, manager in enumerate(installed_managers, 1):
-                cprint(f"  {i:2d}. {Colors.SUCCESS}● {_manager_human(manager)}{Colors.RESET}", "SUCCESS")
+                cprint(f"  {i:2d}. {_manager_human(manager)}", "SUCCESS")
         else:
             cprint("      None found - consider installing pip, npm, brew, or apt", "WARNING")
         
         # Show CrossFire-managed packages
         crossfire_packages = package_db.get_installed_packages()
-        cprint(f"\n📦 {Colors.BOLD}CrossFire-Managed Packages: {len(crossfire_packages)}{Colors.RESET}", "INFO")
+        cprint(f"\nCrossFire-Managed Packages: {len(crossfire_packages)}", "INFO")
         if crossfire_packages:
             recent = crossfire_packages[:3]  # Show 3 most recent
             for pkg in recent:
-                cprint(f"  • {Colors.SUCCESS}{pkg['name']}{Colors.RESET} via {_manager_human(pkg['manager'])}", "SUCCESS")
+                cprint(f"  • {pkg['name']} via {_manager_human(pkg['manager'])}", "SUCCESS")
             if len(crossfire_packages) > 3:
                 cprint(f"  ... and {len(crossfire_packages) - 3} more", "MUTED")
-            cprint(f"  Use: {Colors.BOLD}crossfire --list-installed{Colors.RESET} to see all", "INFO")
+            cprint(f"  Use: crossfire --list-installed to see all", "INFO")
             
         if not_installed and LOG.verbose:
-            cprint(f"\n❌ {Colors.BOLD}Unavailable Managers:{Colors.RESET}", "MUTED")
+            cprint(f"\nUnavailable Managers:", "MUTED")
             for manager in not_installed[:5]: # Show only first 5
                 status = status_info[manager]
                 cprint(f"      ○ {manager} ({status})", "MUTED")
             if len(not_installed) > 5:
                 cprint(f"      ... and {len(not_installed) - 5} more", "MUTED")
         
-        cprint("\n🎯 Quick Start:", "CYAN")
+        cprint("\nQuick Start:", "CYAN")
         cprint("    crossfire --setup              # Install CrossFire globally", "INFO")
         cprint("    crossfire -s 'python library'  # Real search across repositories", "INFO") 
         cprint("    crossfire -i numpy             # Install with automatic tracking", "INFO")
+        cprint("    crossfire --install-manager brew  # Install package managers", "INFO")
         cprint("    crossfire --list-installed     # Show managed packages", "INFO")
         cprint("    crossfire --health-check       # System diagnostics", "INFO")
         cprint("    crossfire --help               # Show all commands", "INFO")
         
         if installed_managers:
-            cprint(f"\n🔥 {Colors.BOLD}System Ready!{Colors.RESET} Found {len(installed_managers)} package managers.", "SUCCESS")
+            cprint(f"\nSystem Ready! Found {len(installed_managers)} package managers.", "SUCCESS")
         else:
-            cprint(f"\n⚠️  {Colors.BOLD}Setup Needed{Colors.RESET} - No package managers detected.", "WARNING")
+            cprint(f"\nSetup Needed - No package managers detected.", "WARNING")
     
     return 0
 
@@ -1871,20 +2008,28 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         # Handle the setup command
         if args.setup:
-            cprint("⚙️ Running production setup...", "INFO")
+            cprint("Running production setup...", "INFO")
             
             path_success = add_to_path_safely()
             installed_path = install_launcher()
             
             if installed_path and path_success:
-                cprint(f"\n🎉 {Colors.BOLD}Setup Complete!{Colors.RESET}", "SUCCESS")
+                cprint(f"\nSetup Complete!", "SUCCESS")
                 cprint("    • CrossFire is now available globally as 'crossfire'", "SUCCESS")
                 cprint("    • Restart your terminal or run: source ~/.bashrc", "INFO")
                 cprint("    • Try: crossfire -s 'python library' to test search", "CYAN")
                 cprint("    • Database initialized for package tracking", "INFO")
             else:
-                cprint("⚠️ Setup completed with some issues.", "WARNING")
+                cprint("Setup completed with some issues.", "WARNING")
             return 0
+
+        # Install manager command - FIXED
+        if args.install_manager:
+            manager = args.install_manager.lower()
+            success = install_manager(manager)
+            if LOG.json_mode:
+                print(json.dumps({"manager": manager, "success": success}, indent=2))
+            return 0 if success else 1
 
         # Network testing commands
         if args.speed_test:
@@ -1920,13 +2065,13 @@ def main(argv: Optional[List[str]] = None) -> int:
                         break
                 
                 if not proper_name:
-                    cprint(f"❌ Unknown package manager: {args.update_manager}", "ERROR")
+                    cprint(f"Unknown package manager: {args.update_manager}", "ERROR")
                     return 1
                     
                 name, ok, msg = _update_manager(proper_name)
                 results = {name: {"ok": str(ok).lower(), "msg": msg}}
-                status_icon = "✅" if ok else "❌"
-                cprint(f"{status_icon} {name}: {msg}", "SUCCESS" if ok else "ERROR")
+                status_icon = "Success" if ok else "Failed"
+                cprint(f"{name}: {msg}", "SUCCESS" if ok else "ERROR")
                 
             if LOG.json_mode:
                 print(json.dumps(results, indent=2, ensure_ascii=False))
@@ -1938,18 +2083,20 @@ def main(argv: Optional[List[str]] = None) -> int:
             if LOG.json_mode:
                 print(json.dumps(status_info, indent=2, ensure_ascii=False))
             else:
-                cprint("🔧 Package Manager Status:", "INFO")
+                cprint("Package Manager Status:", "INFO")
                 for manager, status in sorted(status_info.items()):
                     if status == "Installed":
-                        status_icon = f"{Colors.SUCCESS}✅"
+                        status_icon = f"Available"
                         color = "SUCCESS"
                     elif status == "Not Installed":
-                        status_icon = f"{Colors.MUTED}❌"
+                        status_icon = f"Not Available"
                         color = "MUTED"
                     else:
-                        status_icon = f"{Colors.WARNING}❓"
+                        status_icon = f"Unknown"
                         color = "WARNING"
-                    cprint(f" {status_icon} {Colors.BOLD}{manager}{Colors.RESET}: {status}", color)
+                    cprint(f" {manager}: {status}", color)
+                    
+                cprint(f"\nInstall managers with: crossfire --install-manager <name>", "INFO")
             return 0
         
         if args.list_installed:
@@ -1979,11 +2126,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                 print(json.dumps(output, indent=2, ensure_ascii=False))
             else:
                 if not results:
-                    cprint(f"🔍 No packages found for '{args.search}'", "WARNING")
-                    cprint("💡 Try different keywords or check internet connection", "INFO")
+                    cprint(f"No packages found for '{args.search}'", "WARNING")
+                    cprint("Try different keywords or check internet connection", "INFO")
                     return 1
                 
-                cprint(f"🔍 {Colors.BOLD}Search Results for '{args.search}'{Colors.RESET} (Found {len(results)})", "SUCCESS")
+                cprint(f"Search Results for '{args.search}' (Found {len(results)})", "SUCCESS")
                 cprint("=" * 70, "CYAN")
                 
                 for i, pkg in enumerate(results, 1):
@@ -1991,16 +2138,16 @@ def main(argv: Optional[List[str]] = None) -> int:
                     stars = min(5, max(1, int(pkg.relevance_score // 20)))
                     relevance_stars = "⭐" * stars
                     
-                    cprint(f"\n{i:2d}. {Colors.BOLD}{pkg.name}{Colors.RESET} {Colors.MUTED}({_manager_human(pkg.manager)}){Colors.RESET} {relevance_stars}", "SUCCESS")
+                    cprint(f"\n{i:2d}. {pkg.name} ({_manager_human(pkg.manager)}) {relevance_stars}", "SUCCESS")
                     if pkg.version:
-                        cprint(f"      Version: {Colors.CYAN}{pkg.version}{Colors.RESET}", "INFO")
+                        cprint(f"      Version: {pkg.version}", "INFO")
                     if pkg.description:
                         desc = pkg.description[:120] + "..." if len(pkg.description) > 120 else pkg.description
                         cprint(f"      {desc}", "MUTED")
                     if pkg.homepage:
-                        cprint(f"      🔗 {pkg.homepage}", "CYAN")
+                        cprint(f"      {pkg.homepage}", "CYAN")
                 
-                cprint(f"\n💡 Install with: {Colors.BOLD}crossfire -i <package_name>{Colors.RESET}", "INFO")
+                cprint(f"\nInstall with: crossfire -i <package_name>", "INFO")
                 
             return 0
         
@@ -2065,26 +2212,28 @@ def main(argv: Optional[List[str]] = None) -> int:
             if LOG.json_mode:
                 print(json.dumps(results, indent=2, ensure_ascii=False))
             return 0 if any(r.get("ok") == "true" for r in results.values()) else 1
+            
         
         # No specific command given, show enhanced status
         return show_enhanced_status()
         
     except KeyboardInterrupt:
-        cprint("\n🛑 Operation cancelled by user.", "WARNING")
+        cprint("\nOperation cancelled by user.", "WARNING")
         return 1
     except Exception as e:
-        cprint(f"💥 Unexpected error: {e}", "ERROR")
+        cprint(f"Unexpected error: {e}", "ERROR")
         if LOG.verbose:
             import traceback
             traceback.print_exc()
         return 1
 
 if __name__ == "__main__":
+    
     # Ensure we have required dependencies
     try:
         import requests
     except ImportError:
-        print("❌ Missing required dependency 'requests'. Install with: pip install requests")
+        print("Missing required dependency 'requests'. Install with: pip install requests")
         sys.exit(1)
     
     sys.exit(main())
