@@ -72,8 +72,6 @@ crossfire -i package --manager pip --verbose --json
 🏗️ Architecture
 CrossFire is built on a modular, self-sustaining architecture designed for speed and reliability.
 
-<div align="center">
-
 ┌──────────────────────────────────────┐
 │        🔥 CrossFire Core Engine      │
 ├──────────────────────────────────────┤
@@ -94,8 +92,6 @@ CrossFire is built on a modular, self-sustaining architecture designed for speed
 │ ├─ Language-Specific (pip, npm)      │
 │ └─ Universal (snap, flatpak)         │
 └──────────────────────────────────────┘
-
-</div>
 
 🤝 Contributing
 We're a community of digital revolutionaries building the future of package management. We welcome contributions of all kinds!
