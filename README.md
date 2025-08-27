@@ -135,7 +135,7 @@ Join a **community of digital revolutionaries** shaping the future of package ma
 * **Feature Requests**: Propose new features with a clear use case.
 * **Code Contributions**: Fork, branch, and submit a pull request.
 
-**Want to add a new package manager?** Follow our [Extension Guide](#).
+**Want to add a new package manager?** Follow our [Extension Guide](https://bcas-team.github.io/Crossfire/).
 
 ---
 
