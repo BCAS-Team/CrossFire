@@ -25,7 +25,7 @@ from pathlib import Path
 import requests
 import xml.etree.ElementTree as ET
 
-__version__ = "CrossFire 1.0 - BlackBase"
+__version__ = "CrossFire v4.0 - BlackBase (Release)"
 
 # ----------------------------
 # Configuration & Constants
@@ -1933,7 +1933,7 @@ def show_enhanced_status() -> int:
     """Shows the enhanced tool status with better formatting."""
     # Welcome header
     cprint("=" * 60, "CYAN")
-    cprint(f"CrossFire v{__version__} — Universal Package Manager", "SUCCESS")
+    cprint(f"{__version__}", "SUCCESS")
     cprint(f"System: {OS_NAME} {DISTRO_NAME} {DISTRO_VERSION} ({ARCH})", "INFO")
     cprint("=" * 60, "CYAN")
     
