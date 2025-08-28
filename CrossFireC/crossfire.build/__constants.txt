@@ -1,0 +1,378 @@
+{
+  "__bytecode.const": {
+    "blob_name": ".bytecode",
+    "blob_size": 7446181,
+    "input_size": 7472358
+  },
+  "__constants.const": {
+    "blob_name": "",
+    "blob_size": 854,
+    "input_size": 2182
+  },
+  "module.__main__.const": {
+    "blob_name": "__main__",
+    "blob_size": 30374,
+    "input_size": 44438
+  },
+  "module.__parents_main__.const": {
+    "blob_name": "__parents_main__",
+    "blob_size": 30327,
+    "input_size": 44440
+  },
+  "module.certifi.const": {
+    "blob_name": "certifi",
+    "blob_size": 290,
+    "input_size": 556
+  },
+  "module.certifi.core.const": {
+    "blob_name": "certifi.core",
+    "blob_size": 427,
+    "input_size": 836
+  },
+  "module.charset_normalizer.api.const": {
+    "blob_name": "charset_normalizer.api",
+    "blob_size": 8185,
+    "input_size": 8749
+  },
+  "module.charset_normalizer.cd.const": {
+    "blob_name": "charset_normalizer.cd",
+    "blob_size": 5550,
+    "input_size": 6557
+  },
+  "module.charset_normalizer.const": {
+    "blob_name": "charset_normalizer",
+    "blob_size": 1657,
+    "input_size": 2056
+  },
+  "module.charset_normalizer.constant.const": {
+    "blob_name": "charset_normalizer.constant",
+    "blob_size": 20309,
+    "input_size": 26440
+  },
+  "module.charset_normalizer.legacy.const": {
+    "blob_name": "charset_normalizer.legacy",
+    "blob_size": 1337,
+    "input_size": 1841
+  },
+  "module.charset_normalizer.models.const": {
+    "blob_name": "charset_normalizer.models",
+    "blob_size": 5983,
+    "input_size": 7990
+  },
+  "module.charset_normalizer.utils.const": {
+    "blob_name": "charset_normalizer.utils",
+    "blob_size": 4468,
+    "input_size": 6034
+  },
+  "module.charset_normalizer.version.const": {
+    "blob_name": "charset_normalizer.version",
+    "blob_size": 197,
+    "input_size": 391
+  },
+  "module.distro.const": {
+    "blob_name": "distro",
+    "blob_size": 1260,
+    "input_size": 1340
+  },
+  "module.distro.distro.const": {
+    "blob_name": "distro.distro",
+    "blob_size": 31104,
+    "input_size": 35497
+  },
+  "module.google.const": {
+    "blob_name": "google",
+    "blob_size": 114,
+    "input_size": 231
+  },
+  "module.idna.const": {
+    "blob_name": "idna",
+    "blob_size": 1141,
+    "input_size": 1295
+  },
+  "module.idna.core.const": {
+    "blob_name": "idna.core",
+    "blob_size": 3820,
+    "input_size": 5903
+  },
+  "module.idna.idnadata.const": {
+    "blob_name": "idna.idnadata",
+    "blob_size": 22386,
+    "input_size": 28492
+  },
+  "module.idna.intranges.const": {
+    "blob_name": "idna.intranges",
+    "blob_size": 1058,
+    "input_size": 1565
+  },
+  "module.idna.package_data.const": {
+    "blob_name": "idna.package_data",
+    "blob_size": 136,
+    "input_size": 277
+  },
+  "module.idna.uts46data.const": {
+    "blob_name": "idna.uts46data",
+    "blob_size": 90806,
+    "input_size": 99619
+  },
+  "module.multiprocessing-postLoad.const": {
+    "blob_name": "multiprocessing-postLoad",
+    "blob_size": 364,
+    "input_size": 692
+  },
+  "module.multiprocessing-preLoad.const": {
+    "blob_name": "multiprocessing-preLoad",
+    "blob_size": 202,
+    "input_size": 408
+  },
+  "module.requests.__version__.const": {
+    "blob_name": "requests.__version__",
+    "blob_size": 419,
+    "input_size": 794
+  },
+  "module.requests._internal_utils.const": {
+    "blob_name": "requests._internal_utils",
+    "blob_size": 1101,
+    "input_size": 1544
+  },
+  "module.requests.adapters.const": {
+    "blob_name": "requests.adapters",
+    "blob_size": 16373,
+    "input_size": 18676
+  },
+  "module.requests.api.const": {
+    "blob_name": "requests.api",
+    "blob_size": 5721,
+    "input_size": 6246
+  },
+  "module.requests.auth.const": {
+    "blob_name": "requests.auth",
+    "blob_size": 3783,
+    "input_size": 6233
+  },
+  "module.requests.certs.const": {
+    "blob_name": "requests.certs",
+    "blob_size": 464,
+    "input_size": 619
+  },
+  "module.requests.compat.const": {
+    "blob_name": "requests.compat",
+    "blob_size": 1398,
+    "input_size": 1953
+  },
+  "module.requests.const": {
+    "blob_name": "requests",
+    "blob_size": 2809,
+    "input_size": 3490
+  },
+  "module.requests.cookies.const": {
+    "blob_name": "requests.cookies",
+    "blob_size": 11044,
+    "input_size": 14165
+  },
+  "module.requests.exceptions.const": {
+    "blob_name": "requests.exceptions",
+    "blob_size": 3192,
+    "input_size": 4373
+  },
+  "module.requests.hooks.const": {
+    "blob_name": "requests.hooks",
+    "blob_size": 478,
+    "input_size": 725
+  },
+  "module.requests.models.const": {
+    "blob_name": "requests.models",
+    "blob_size": 13869,
+    "input_size": 17950
+  },
+  "module.requests.packages.const": {
+    "blob_name": "requests.packages",
+    "blob_size": 265,
+    "input_size": 560
+  },
+  "module.requests.sessions.const": {
+    "blob_name": "requests.sessions",
+    "blob_size": 13132,
+    "input_size": 15955
+  },
+  "module.requests.status_codes.const": {
+    "blob_name": "requests.status_codes",
+    "blob_size": 3249,
+    "input_size": 3823
+  },
+  "module.requests.structures.const": {
+    "blob_name": "requests.structures",
+    "blob_size": 2423,
+    "input_size": 3368
+  },
+  "module.requests.utils.const": {
+    "blob_name": "requests.utils",
+    "blob_size": 13741,
+    "input_size": 18666
+  },
+  "module.six.const": {
+    "blob_name": "six",
+    "blob_size": 14292,
+    "input_size": 21392
+  },
+  "module.urllib3._collections.const": {
+    "blob_name": "urllib3._collections",
+    "blob_size": 5561,
+    "input_size": 7518
+  },
+  "module.urllib3._version.const": {
+    "blob_name": "urllib3._version",
+    "blob_size": 137,
+    "input_size": 278
+  },
+  "module.urllib3.connection.const": {
+    "blob_name": "urllib3.connection",
+    "blob_size": 8115,
+    "input_size": 10622
+  },
+  "module.urllib3.connectionpool.const": {
+    "blob_name": "urllib3.connectionpool",
+    "blob_size": 17662,
+    "input_size": 20899
+  },
+  "module.urllib3.const": {
+    "blob_name": "urllib3",
+    "blob_size": 2097,
+    "input_size": 2978
+  },
+  "module.urllib3.contrib._appengine_environ.const": {
+    "blob_name": "urllib3.contrib._appengine_environ",
+    "blob_size": 741,
+    "input_size": 1072
+  },
+  "module.urllib3.contrib.appengine.const": {
+    "blob_name": "urllib3.contrib.appengine",
+    "blob_size": 5697,
+    "input_size": 7323
+  },
+  "module.urllib3.contrib.const": {
+    "blob_name": "urllib3.contrib",
+    "blob_size": 294,
+    "input_size": 541
+  },
+  "module.urllib3.contrib.pyopenssl.const": {
+    "blob_name": "urllib3.contrib.pyopenssl",
+    "blob_size": 8315,
+    "input_size": 11750
+  },
+  "module.urllib3.contrib.socks.const": {
+    "blob_name": "urllib3.contrib.socks",
+    "blob_size": 3627,
+    "input_size": 4771
+  },
+  "module.urllib3.exceptions.const": {
+    "blob_name": "urllib3.exceptions",
+    "blob_size": 5295,
+    "input_size": 7189
+  },
+  "module.urllib3.fields.const": {
+    "blob_name": "urllib3.fields",
+    "blob_size": 5748,
+    "input_size": 7131
+  },
+  "module.urllib3.filepost.const": {
+    "blob_name": "urllib3.filepost",
+    "blob_size": 1516,
+    "input_size": 2220
+  },
+  "module.urllib3.packages.backports.const": {
+    "blob_name": "urllib3.packages.backports",
+    "blob_size": 399,
+    "input_size": 673
+  },
+  "module.urllib3.packages.backports.makefile.const": {
+    "blob_name": "urllib3.packages.backports.makefile",
+    "blob_size": 734,
+    "input_size": 1111
+  },
+  "module.urllib3.packages.const": {
+    "blob_name": "urllib3.packages",
+    "blob_size": 298,
+    "input_size": 545
+  },
+  "module.urllib3.poolmanager.const": {
+    "blob_name": "urllib3.poolmanager",
+    "blob_size": 11032,
+    "input_size": 13314
+  },
+  "module.urllib3.request.const": {
+    "blob_name": "urllib3.request",
+    "blob_size": 4656,
+    "input_size": 5350
+  },
+  "module.urllib3.response.const": {
+    "blob_name": "urllib3.response",
+    "blob_size": 11537,
+    "input_size": 14904
+  },
+  "module.urllib3.util.connection.const": {
+    "blob_name": "urllib3.util.connection",
+    "blob_size": 2177,
+    "input_size": 2922
+  },
+  "module.urllib3.util.const": {
+    "blob_name": "urllib3.util",
+    "blob_size": 1425,
+    "input_size": 1736
+  },
+  "module.urllib3.util.proxy.const": {
+    "blob_name": "urllib3.util.proxy",
+    "blob_size": 950,
+    "input_size": 1229
+  },
+  "module.urllib3.util.queue.const": {
+    "blob_name": "urllib3.util.queue",
+    "blob_size": 545,
+    "input_size": 1094
+  },
+  "module.urllib3.util.request.const": {
+    "blob_name": "urllib3.util.request",
+    "blob_size": 2425,
+    "input_size": 3183
+  },
+  "module.urllib3.util.response.const": {
+    "blob_name": "urllib3.util.response",
+    "blob_size": 1431,
+    "input_size": 1912
+  },
+  "module.urllib3.util.retry.const": {
+    "blob_name": "urllib3.util.retry",
+    "blob_size": 11173,
+    "input_size": 13252
+  },
+  "module.urllib3.util.ssl_.const": {
+    "blob_name": "urllib3.util.ssl_",
+    "blob_size": 7522,
+    "input_size": 9336
+  },
+  "module.urllib3.util.ssl_match_hostname.const": {
+    "blob_name": "urllib3.util.ssl_match_hostname",
+    "blob_size": 1845,
+    "input_size": 2830
+  },
+  "module.urllib3.util.ssltransport.const": {
+    "blob_name": "urllib3.util.ssltransport",
+    "blob_size": 3564,
+    "input_size": 5239
+  },
+  "module.urllib3.util.timeout.const": {
+    "blob_name": "urllib3.util.timeout",
+    "blob_size": 7225,
+    "input_size": 8266
+  },
+  "module.urllib3.util.url.const": {
+    "blob_name": "urllib3.util.url",
+    "blob_size": 6133,
+    "input_size": 8978
+  },
+  "module.urllib3.util.wait.const": {
+    "blob_name": "urllib3.util.wait",
+    "blob_size": 1268,
+    "input_size": 1973
+  },
+  "total": 11492
+}
