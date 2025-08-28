@@ -1,0 +1,11 @@
+# -*- coding: utf-8 -*-
+
+import sys
+import os
+import subprocess
+
+exit_code = subprocess.call(
+    ['/usr/bin/python3', '-W', 'ignore', '/usr/local/lib/python3.11/dist-packages/nuitka/build/inline_copy/bin/scons.py', '-f', '/usr/local/lib/python3.11/dist-packages/nuitka/build/Backend.scons', '--jobs', '4', '--warn=no-deprecated', '--no-site-dir', '--debug=stacktrace', 'nuitka_src=/usr/local/lib/python3.11/dist-packages/nuitka/build', 'python_version=3.11', 'python_prefix=/usr', 'experimental=', 'debug_modes=', 'deployment=false', 'no_deployment=', 'clang_mode=true', 'show_scons=true', 'lto_mode=yes', 'cpp_defines=_NUITKA_PLUGIN_MULTIPROCESSING_ENABLED=1', 'target_arch=x86_64', 'module_mode=false', 'dll_mode=false', 'exe_mode=true', 'standalone_mode=true', 'gil_mode=true', 'source_dir=.', 'nuitka_python=false', 'debug_mode=false', 'debugger_mode=false', 'python_debug=false', 'full_compat=false', 'trace_mode=false', 'file_reference_mode=runtime', 'compiled_module_count=73', 'result_exe=/mnt/sda1/PythonProjects/CrossFire/BlackBase/crossfire.dist/crossfire.bin', 'static_libpython=/usr/lib/python3.11/config-3.11-x86_64-linux-gnu/libpython3.11-pic.a', 'debian_python=true', 'frozen_modules=151', 'python_sysflag_no_site=true'],
+    env={'SHELL': '/bin/bash','SUDO_GID': '1000','SUDO_COMMAND': '/usr/bin/su','SUDO_USER': 'dietpi','PWD': '/mnt/sda1/PythonProjects/crossfire/blackbase','LOGNAME': 'root','XAUTHORITY': '/home/dietpi/.Xauthority','HOME': '/root','LANG': 'C.UTF-8','XDG_CURRENT_DESKTOP': 'XFCE','USER': 'root','DISPLAY': ':0.0','SHLVL': '1','PATH': '/home/dietpi/PythonProjects/CrossFire/CrossFireL:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin','SUDO_UID': '1000','MAIL': '/var/mail/root','_': '/usr/local/bin/nuitka','OLDPWD': '/mnt/sda1/PythonProjects/crossfire/blackbase/crossfire.dist','PYTHONHASHSEED': '0','NUITKA_PYTHON_EXE_PATH': '/usr/bin/python3','NUITKA_PACKAGE_DIR': '/usr/local/lib/python3.11/dist-packages/nuitka','_NUITKA_BUILD_DEFINITIONS_CATALOG': '_NUITKA_BUILD_DEFINITIONS_CATALOG','NUITKA_QUIET': '0'},
+    shell=False
+)
